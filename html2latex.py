@@ -93,13 +93,21 @@ class html_element(object):
 
 class div_keyconcepts(html_element):
     def __init__(self, element):
+        u'''Convert the div.keyconcepts element to LaTeX
+
+>>> from lxml import etree
+>>> root = etree.HTML('<div class="keyconcepts"></div>')
+>>> delegate(root[0][0])
+u'\\n\\\\keyconcepts{}\\n'
+'''
         html_element.__init__(self, element)
+        self.template = texenv.get_template('keyconcepts.tex')
 
 
 if __name__ == "__main__":
     root = etree.HTML(open(sys.argv[1], 'r').read())
     body = root.find('.//body')
     
-    for element in body:
-        print delegate(element)
+    content = ''.join([delegate(element) for element in body])
+    print content
 
