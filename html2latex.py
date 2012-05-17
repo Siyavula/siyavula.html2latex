@@ -1,10 +1,10 @@
-
+# -*- coding: utf-8 -*-
 #
 # Convert html with special css classes to Customized LaTeX environments.
 #
 import sys
 import os
-import re
+import re, htmlentitydefs
 
 from lxml import etree
 from jinja2 import Template, FileSystemLoader, Environment
@@ -46,9 +46,13 @@ def delegate(element):
        >>> root = etree.HTML('<h1>Title</h1>')
        >>> print delegate(root[0][0])
        \chapter{Title}'''
-
+    
+#    print element.tag, element.text
     # delegate the work to classes handling special cases
     if element.tag =='div':
+        if 'class' not in element.attrib:
+            element.attrib['class'] = ''
+
         if element.attrib['class'] == 'keyconcepts':
             myElement = div_keyconcepts(element)
         elif element.attrib['class'] == 'investigation':
@@ -130,10 +134,43 @@ class div_investigation_header(html_element):
         self.content['title'] = self.content['class'].split('-')[1]
         self.template = texenv.get_template('investigation_header.tex')
 
+
+
+##
+# Removes HTML or XML character references and entities from a text string.
+#
+# @param text The HTML (or XML) source text.
+# @return The plain text, as a Unicode string, if necessary.
+
+def unescape(text):
+    def fixup(m):
+        text = m.group(0)
+        if text[:2] == "&#":
+            # character reference
+            try:
+                if text[:3] == "&#x":
+                    return unichr(int(text[3:-1], 16))
+                else:
+                    return unichr(int(text[2:-1]))
+            except ValueError:
+                pass
+        else:
+            # named entity
+            try:
+                text = unichr(htmlentitydefs.name2codepoint[text[1:-1]])
+            except KeyError:
+                pass
+        return text # leave as is
+    return re.sub("&#?\w+;", fixup, text)
+
+
+
 if __name__ == "__main__":
     root = etree.HTML(open(sys.argv[1], 'r').read())
     body = root.find('.//body')
-    
+     
     content = ''.join([delegate(element) for element in body])
-    print content
+    main_template = texenv.get_template('maindoc.tex')
+    print unicode(unescape(main_template.render(content=content))).encode('utf-8')
+    
 
