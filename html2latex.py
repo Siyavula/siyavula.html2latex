@@ -51,6 +51,14 @@ def delegate(element):
     if element.tag =='div':
         if element.attrib['class'] == 'keyconcepts':
             myElement = div_keyconcepts(element)
+        elif element.attrib['class'] == 'investigation':
+            myElement = div_investigation(element)
+        elif 'investigation-' in element.attrib['class']:
+            myElement = div_investigation_header(element)
+
+        else:
+            myElement = html_element(element)
+            
     else:
         # no special handling required
         myElement = html_element(element)
@@ -93,16 +101,34 @@ class html_element(object):
 
 class div_keyconcepts(html_element):
     def __init__(self, element):
-        u'''Convert the div.keyconcepts element to LaTeX
+        r'''Convert the div.keyconcepts element to LaTeX
 
->>> from lxml import etree
->>> root = etree.HTML('<div class="keyconcepts"></div>')
->>> delegate(root[0][0])
-u'\\n\\\\keyconcepts{}\\n'
+        >>> from lxml import etree
+        >>> root = etree.HTML('<div class="keyconcepts"></div>')
+        >>> delegate(root[0][0])
+        u'\n\\keyconcepts{}\n'
 '''
         html_element.__init__(self, element)
         self.template = texenv.get_template('keyconcepts.tex')
 
+
+class div_investigation(html_element):
+    def __init__(self, element):
+        r'''Convert the div.investigation element to LaTeX
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('investigation.tex')
+
+
+class div_investigation_header(html_element):
+    def __init__(self, element):
+        r'''Convert the div.investigation element to LaTeX
+
+'''
+        html_element.__init__(self, element)
+        self.content['title'] = self.content['class'].split('-')[1]
+        self.template = texenv.get_template('investigation_header.tex')
 
 if __name__ == "__main__":
     root = etree.HTML(open(sys.argv[1], 'r').read())
