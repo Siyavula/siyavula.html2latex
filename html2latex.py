@@ -5,13 +5,16 @@
 import sys
 import os
 import re, htmlentitydefs
+import urllib
 
 from lxml import etree
 from jinja2 import Template, FileSystemLoader, Environment
 from jinja2.exceptions import TemplateNotFound
+import PIL
 
 # Some boilerplate to use jinja more elegantly with LaTeX
 # http://flask.pocoo.org/snippets/55/
+
 
 LATEX_SUBS = (
     (re.compile(r'\\'), r'\\textbackslash'),
@@ -46,23 +49,27 @@ def delegate(element):
        >>> root = etree.HTML('<h1>Title</h1>')
        >>> print delegate(root[0][0])
        \chapter{Title}'''
-    
-#    print element.tag, element.text
+    #print '%', element.tag, element.attrib
     # delegate the work to classes handling special cases
-    if element.tag =='div':
+    if element.tag == 'div':
         if 'class' not in element.attrib:
             element.attrib['class'] = ''
 
         if element.attrib['class'] == 'keyconcepts':
+            #import pdb; pdb.set_trace()
             myElement = div_keyconcepts(element)
         elif element.attrib['class'] == 'investigation':
             myElement = div_investigation(element)
         elif 'investigation-' in element.attrib['class']:
             myElement = div_investigation_header(element)
-
         else:
             myElement = html_element(element)
-            
+
+    elif element.tag == 'table':
+        myElement = table(element)
+
+    elif element.tag == 'img':
+        myElement = img(element)
     else:
         # no special handling required
         myElement = html_element(element)
@@ -101,6 +108,28 @@ class html_element(object):
         for child in self.element:
             self.content['text'] += delegate(child)
 
+
+class table(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+        # must get number of columns
+        ncols = len(element.find('.//tr').findall('.//td')) + 1
+        self.template = texenv.get_template('table.tex')
+        self.content['ncols'] = ncols + 1
+        self.content['cols'] = '|' + '|'.join(['c' for i in range(int(ncols))]) 
+
+
+class img(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+        # get the link to the image and download it.
+        src = element.attrib['src']
+        name = src.rpartition('/')[-1]
+        self.content['imagename'] = name
+        if name not in os.listdir(os.curdir + '/images'):
+            img = urllib.urlopen(src).read()
+            # get mimetype
+            open('images/%s'%name, 'wb').write(img)
 
 
 class div_keyconcepts(html_element):
