@@ -10,7 +10,7 @@ import urllib
 from lxml import etree
 from jinja2 import Template, FileSystemLoader, Environment
 from jinja2.exceptions import TemplateNotFound
-import PIL
+from PIL import Image
 
 # Some boilerplate to use jinja more elegantly with LaTeX
 # http://flask.pocoo.org/snippets/55/
@@ -56,12 +56,30 @@ def delegate(element):
             element.attrib['class'] = ''
 
         if element.attrib['class'] == 'keyconcepts':
-            #import pdb; pdb.set_trace()
             myElement = div_keyconcepts(element)
+        
+        elif element.attrib['class'] == 'keyquestions':
+            myElement = div_keyquestions(element)
+        
         elif element.attrib['class'] == 'investigation':
             myElement = div_investigation(element)
+        
+        elif element.attrib['class'] == 'activity':
+            myElement = div_activity(element)
+        
+        elif element.attrib['class'] == 'newwords':
+            myElement = div_newwords(element)
+
+        elif element.attrib['class'] == 'questions':
+            myElement = div_questions(element)
+
         elif 'investigation-' in element.attrib['class']:
             myElement = div_investigation_header(element)
+        
+        elif 'activity-' in element.attrib['class']:
+            myElement = div_investigation_header(element)
+        
+
         else:
             myElement = html_element(element)
 
@@ -70,6 +88,17 @@ def delegate(element):
 
     elif element.tag == 'img':
         myElement = img(element)
+    
+    elif element.tag == 'h1':
+        if 'class' not in element.attrib:
+            element.attrib['class'] = ''
+
+        if element.attrib['class'] == 'part':
+            myElement = part(element)
+        elif element.attrib['class'] == 'chapter':
+            myElement = html_element(element)
+
+
     else:
         # no special handling required
         myElement = html_element(element)
@@ -98,6 +127,10 @@ class html_element(object):
         except TemplateNotFound:
             self.template = texenv.get_template('not_implemented.tex')
 
+        #escape latex characters
+        self.content['text'] = escape_latex(self.content['text'])
+        self.content['tail'] = escape_latex(self.content['tail'])
+
         self.render_children()
 
         
@@ -108,6 +141,15 @@ class html_element(object):
         for child in self.element:
             self.content['text'] += delegate(child)
 
+class part(html_element):
+    def __init__(self, element):
+        r'''Convert the h1.part element to LaTeX
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('part.tex')
+
+
 
 class table(html_element):
     def __init__(self, element):
@@ -116,20 +158,34 @@ class table(html_element):
         ncols = len(element.find('.//tr').findall('.//td')) + 1
         self.template = texenv.get_template('table.tex')
         self.content['ncols'] = ncols + 1
-        self.content['cols'] = '|' + '|'.join(['c' for i in range(int(ncols))]) 
+        self.content['cols'] = '|' + '|'.join(['c' for i in range(int(ncols))]) + '|'
 
 
 class img(html_element):
     def __init__(self, element):
+        image_types = {'JPEG':'.jpg', 'PNG':'.png'}
         html_element.__init__(self, element)
         # get the link to the image and download it.
         src = element.attrib['src']
         name = src.rpartition('/')[-1]
         self.content['imagename'] = name
-        if name not in os.listdir(os.curdir + '/images'):
+
+        downloaded = any([name in imname for imname in os.listdir(os.curdir + '/images')])
+
+        if not downloaded: 
             img = urllib.urlopen(src).read()
-            # get mimetype
             open('images/%s'%name, 'wb').write(img)
+            # now open the file and read the mimetpye
+            try:
+                im = Image.open('images/%s'%name)
+                extension = image_types[im.format]
+                os.system('mv images/%s images/%s'%(name, name+extension))
+                # update the image name that the template will see
+                self.content['imagename'] = name + extension
+            except:
+                print "Cannot open image: %s"%name
+            
+
 
 
 class div_keyconcepts(html_element):
@@ -145,6 +201,23 @@ class div_keyconcepts(html_element):
         self.template = texenv.get_template('keyconcepts.tex')
 
 
+class div_keyquestions(html_element):
+    def __init__(self, element):
+        r'''convert the div.keyquestions element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('keyquestions.tex')
+
+
+class div_questions(html_element):
+    def __init__(self, element):
+        r'''convert the div.questions element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('questions.tex')
+
 class div_investigation(html_element):
     def __init__(self, element):
         r'''Convert the div.investigation element to LaTeX
@@ -152,6 +225,30 @@ class div_investigation(html_element):
 '''
         html_element.__init__(self, element)
         self.template = texenv.get_template('investigation.tex')
+
+class div_newwords(html_element):
+    def __init__(self, element):
+        r'''Convert the div.newwords element to LaTeX
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('newwords.tex')
+
+
+class div_activity(html_element):
+    def __init__(self, element):
+        r'''Convert the div.activity element to LaTeX
+
+'''
+        # we need to prepare the title
+        title_element = element.find('.//div[@class="activity-title"]')
+        # get all the title text and remove from DOM
+        title = title_element.text + ''.join([t.text for t in title_element.findall('.//')])
+        element.remove(title_element)
+
+        html_element.__init__(self, element)
+        self.content['title'] = title 
+        self.template = texenv.get_template('activity.tex')
 
 
 class div_investigation_header(html_element):
@@ -192,7 +289,11 @@ def unescape(text):
         return text # leave as is
     return re.sub("&#?\w+;", fixup, text)
 
-
+def escape_latex(text):
+    '''Escape some latex special characters'''
+    text = text.replace('&', '\&')
+    text = text.replace('_', '\_')
+    return text
 
 if __name__ == "__main__":
     root = etree.HTML(open(sys.argv[1], 'r').read())
@@ -200,6 +301,7 @@ if __name__ == "__main__":
      
     content = ''.join([delegate(element) for element in body])
     main_template = texenv.get_template('maindoc.tex')
+
     print unicode(unescape(main_template.render(content=content))).encode('utf-8')
     
 
