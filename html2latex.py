@@ -31,15 +31,6 @@ def escape_tex(value):
         newval = pattern.sub(replacement, newval)
     return newval
 
-loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/')
-texenv = Environment(loader=loader)
-texenv.block_start_string = '((*'
-texenv.block_end_string = '*))'
-texenv.variable_start_string = '((('
-texenv.variable_end_string = ')))'
-texenv.comment_start_string = '((='
-texenv.comment_end_string = '=))'
-texenv.filters['escape_tex'] = escape_tex
 
 
 
@@ -98,6 +89,14 @@ def delegate(element):
         elif element.attrib['class'] == 'chapter':
             myElement = html_element(element)
 
+    #
+    # cnxmlplus tags 
+    #
+
+    elif element.tag == 'section':
+        myElement = section(element)
+    elif element.tag == '{http://www.w3.org/1998/Math/MathML}math':
+        myElement = math(element)
 
     else:
         # no special handling required
@@ -140,6 +139,33 @@ class html_element(object):
     def render_children(self):
         for child in self.element:
             self.content['text'] += delegate(child)
+
+
+
+class math(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+        # call the xslt transform to transform mathml to latex.
+        xslt = etree.parse(os.path.dirname(os.path.realpath(__file__)) + '/templates/xslt/mmltex.xsl')
+        transform = etree.XSLT(xslt)
+        tex = transform(element)
+        tex = unicode(tex).replace('$', '')
+        self.template = texenv.get_template('math.tex')
+        self.content['text'] = tex
+
+
+
+
+class section(html_element):
+    def __init__(self, element):
+        title = element.find('.//title')
+        titletext = delegate(title)
+        element.remove(title)
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('%s.tex'%element.attrib['type'])
+
+        self.content['title'] = titletext
+
 
 class part(html_element):
     def __init__(self, element):
@@ -295,10 +321,40 @@ def escape_latex(text):
     text = text.replace('_', '\_')
     return text
 
+
+def setup_texenv(loader):
+    texenv = Environment(loader=loader)
+    texenv.block_start_string = '((*'
+    texenv.block_end_string = '*))'
+    texenv.variable_start_string = '((('
+    texenv.variable_end_string = ')))'
+    texenv.comment_start_string = '((='
+    texenv.comment_end_string = '=))'
+    texenv.filters['escape_tex'] = escape_tex
+
+    return texenv
+
+
 if __name__ == "__main__":
-    root = etree.HTML(open(sys.argv[1], 'r').read())
-    body = root.find('.//body')
-     
+
+    extension = sys.argv[1].rsplit('.')[-1]
+
+    if extension == 'html':
+        root = etree.HTML(open(sys.argv[1], 'r').read())
+        loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/html')
+        texenv = setup_texenv(loader)
+        body = root.find('.//body')
+    elif extension == 'cnxmlplus':
+        root = etree.XML(open(sys.argv[1], 'r').read())
+        loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/cnxmlplus')
+        texenv = setup_texenv(loader)
+        body = root.find('.//content')
+    else:
+        print 'Unknown extension on input file type!!'
+        sys.exit()
+
+
+
     content = ''.join([delegate(element) for element in body])
     main_template = texenv.get_template('maindoc.tex')
 
