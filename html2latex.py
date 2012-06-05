@@ -97,6 +97,8 @@ def delegate(element):
         myElement = section(element)
     elif element.tag == '{http://www.w3.org/1998/Math/MathML}math':
         myElement = math(element)
+    elif element.tag == 'worked_example':
+        myElement = worked_example(element)
 
     else:
         # no special handling required
@@ -151,8 +153,22 @@ class math(html_element):
         tex = transform(element)
         tex = unicode(tex).replace('$', '')
         self.template = texenv.get_template('math.tex')
-        self.content['text'] = tex
+        text = escape_latex(tex) 
+        # fix some things
+        text = text.replace('\&', '&')
+        
+        self.content['text'] = text        
 
+
+
+class worked_example(html_element):
+    def __init__(self, element):
+        title = element.find('.//title')
+        titletext = delegate(title)
+        element.remove(title)
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('worked_example.tex')
+        self.content['title'] = titletext
 
 
 
@@ -163,7 +179,6 @@ class section(html_element):
         element.remove(title)
         html_element.__init__(self, element)
         self.template = texenv.get_template('%s.tex'%element.attrib['type'])
-
         self.content['title'] = titletext
 
 
@@ -319,6 +334,7 @@ def escape_latex(text):
     '''Escape some latex special characters'''
     text = text.replace('&', '\&')
     text = text.replace('_', '\_')
+    text = text.replace('%', '\%')
     return text
 
 
@@ -356,6 +372,7 @@ if __name__ == "__main__":
 
 
     content = ''.join([delegate(element) for element in body])
+
     main_template = texenv.get_template('maindoc.tex')
 
     print unicode(unescape(main_template.render(content=content))).encode('utf-8')
