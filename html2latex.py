@@ -99,7 +99,10 @@ def delegate(element):
         myElement = math(element)
     elif element.tag == 'worked_example':
         myElement = worked_example(element)
-
+    elif element.tag == 'workstep':
+        myElement = workstep(element)
+    elif element.tag == 'list':
+        myElement = listelement(element)
     else:
         # no special handling required
         myElement = html_element(element)
@@ -114,7 +117,7 @@ class html_element(object):
         # we make a general dict to store the contents we send to the Jinja templates.
         self.content = {}
         self.content['text'] = self.element.text if self.element.text is not None else ''
-        self.content['tail'] = self.element.tail if self.element.tail is not None else ''
+        self.content['tail'] = self.element.tail.strip() if self.element.tail is not None else ''
  
         self.content['tag'] = self.element.tag
 
@@ -156,7 +159,14 @@ class math(html_element):
         text = escape_latex(tex) 
         # fix some things
         text = text.replace('\&', '&')
-        
+       
+        # fix the autosizing bracket issue. Must have matching brackets in every math environment.
+        # If they don't match, remove the autosizing \left and \right
+        if text.count(r'\left') != text.count(r'\right'):
+            text = text.replace(r'\left', '').replace(r'\right', '')
+
+        # mathml tables with display
+
         self.content['text'] = text        
 
 
@@ -169,6 +179,38 @@ class worked_example(html_element):
         html_element.__init__(self, element)
         self.template = texenv.get_template('worked_example.tex')
         self.content['title'] = titletext
+
+
+class exercise(html_element):
+    def __init__(self, element):
+        title = element.find('.//title')
+        titletext = delegate(title)
+        element.remove(title)
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('exercise.tex')
+        self.content['title'] = titletext
+
+
+
+class workstep(html_element):
+    def __init__(self, element):
+        title = element.find('.//title')
+        titletext = delegate(title)
+        element.remove(title)
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('workstep.tex')
+        self.content['title'] = titletext
+
+class listelement(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+        list_type = element.attrib['list-type']
+        if list_type == 'enumerated':
+            self.template = texenv.get_template('enumerated.tex')
+        elif list_type == 'bulleted':
+            self.template = texenv.get_template('bulleted.tex')
+        else:
+            self.template = texenv.get_template('not_implemented.tex')
 
 
 
@@ -195,12 +237,23 @@ class part(html_element):
 class table(html_element):
     def __init__(self, element):
         html_element.__init__(self, element)
-        # must get number of columns
-        ncols = len(element.find('.//tr').findall('.//td')) + 1
-        self.template = texenv.get_template('table.tex')
-        self.content['ncols'] = ncols + 1
-        self.content['cols'] = '|' + '|'.join(['c' for i in range(int(ncols))]) + '|'
+        # check whether its html or cnxml table
+        if element.find('.//tr'):
+            # html table
+            # must get number of columns
+            ncols = len(element.find('.//tr').findall('.//td')) + 1
+            self.content['ncols'] = ncols + 1
+            self.content['cols'] = '|' + '|'.join(['c' for i in range(int(ncols))]) + '|'
+        else:
+            #cnxml table
+            if 'latex-column-spec' in element.attrib:
+                self.content['columnspec'] = element.attrib['latex-column-spec']
 
+            self.content['text'] = self.content['text'].replace(r'& \\', r' \\')
+
+
+        
+        self.template = texenv.get_template('table.tex')
 
 class img(html_element):
     def __init__(self, element):
@@ -333,7 +386,7 @@ def unescape(text):
 def escape_latex(text):
     '''Escape some latex special characters'''
     text = text.replace('&', '\&')
-    text = text.replace('_', '\_')
+#   text = text.replace('_', '\_')
     text = text.replace('%', '\%')
     return text
 
