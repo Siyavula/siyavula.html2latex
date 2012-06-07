@@ -188,8 +188,8 @@ class math(html_element):
 class latex(html_element):
     def __init__(self, element):
         html_element.__init__(self, element)
-        if 'begin{align' in self.content['text']:
-            self.content['text'] = self.content['text'].replace('$', '')
+        self.content['text'] = self.content['text'].replace(r'$\begin{a',
+                r'\begin{a')
        
 
 
@@ -315,17 +315,22 @@ class table(html_element):
             self.content['cols'] = '|' + '|'.join(['c' for i in range(int(ncols))]) + '|'
         else:
             #cnxml table
-            if 'latex-column-spec' in element.attrib:
-                self.content['columnspec'] = element.attrib['latex-column-spec']
-            elif element.find('.//tgroup') is not None:
-                tgroup = element.find('.//tgroup')
-                if 'cols' in tgroup.attrib['cols']:
-                    ncols = int(tgroup.attrib['cols'])
-                else:
-                    ncols = None
+#           if 'latex-column-spec' in element.attrib:
+#               self.content['columnspec'] = element.attrib['latex-column-spec']
+#           elif element.find('.//tgroup') is not None:
+#               tgroup = element.find('.//tgroup')
+#               if 'cols' in tgroup.attrib:
+#                   ncols = int(tgroup.attrib['cols'])
+#               else:
+            ncols = len(element.findall('.//entry')) / \
+            len(element.findall('.//row')) + 1
+            self.content['columnspec'] = '|c'*ncols + '|'
+                
+#            ncols = len(element.find('.//row').findall('.//entry'))
 
             # remove the last & in the row.
             self.content['text'] = self.content['text'].replace(r'& \\', r' \\')
+
 
 
         
@@ -464,6 +469,9 @@ def escape_latex(text):
 #    text = text.replace('&', '\&')
 #   text = text.replace('_', '\_')
     text = text.replace('%', '\%')
+
+    # fix some stuff
+    text = text.replace(r'\rm', r'\mathrm')
     return text
 
 
