@@ -103,6 +103,14 @@ def delegate(element):
         myElement = workstep(element)
     elif element.tag == 'list':
         myElement = listelement(element)
+    elif element.tag == 'definition':
+        myElement = definition(element)
+    elif element.tag == 'figure':
+        myElement = figure(element)
+    elif element.tag == 'exercises':
+        myElement = exercises(element)
+    elif element.tag == 'exercise':
+        myElement = exercise(element)
     else:
         # no special handling required
         myElement = html_element(element)
@@ -130,6 +138,11 @@ class html_element(object):
             self.template = texenv.get_template(self.element.tag + '.tex')
         except TemplateNotFound:
             self.template = texenv.get_template('not_implemented.tex')
+        except TypeError:
+            self.template = texenv.get_template('error.tex')
+
+        for a in self.element.attrib:
+            self.content[a] = self.element.attrib[a]
 
         #escape latex characters
         self.content['text'] = escape_latex(self.content['text'])
@@ -181,6 +194,31 @@ class worked_example(html_element):
         self.content['title'] = titletext
 
 
+class definition(html_element):
+    def __init__(self, element):
+        term = element.find('.//term')
+        termtext = delegate(term)
+        element.remove(term)
+        meaning = element.find('.//meaning')
+        meaningtext = delegate(meaning)
+        element.remove(meaning)
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('definition.tex')
+        self.content['term'] = termtext
+        self.content['meaning'] = meaningtext
+
+class figure(html_element):
+    def __init__(self, element):
+        # basically a floating environment
+        type_element = element.find('.//type')
+        typetext = type_element.text 
+        element.remove(type_element)
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('figure.tex')
+        self.content['type'] = typetext
+
+
+
 class exercise(html_element):
     def __init__(self, element):
         title = element.find('.//title')
@@ -190,6 +228,19 @@ class exercise(html_element):
         self.template = texenv.get_template('exercise.tex')
         self.content['title'] = titletext
 
+class exercises(html_element):
+    def __init__(self, element):
+        title = element.find('.//title')
+        titletext = delegate(title)
+        element.remove(title)
+
+        # change the entry children to ex_entry, they conflict with tables
+        for e in element.findall('.//entry'):
+            e.tag = 'ex_entry'
+
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('exercise.tex')
+        self.content['title'] = titletext
 
 
 class workstep(html_element):
@@ -248,7 +299,13 @@ class table(html_element):
             #cnxml table
             if 'latex-column-spec' in element.attrib:
                 self.content['columnspec'] = element.attrib['latex-column-spec']
+            elif element.find('.//tgroup'):
+                tgroup = element.find('.//tgroup')
+                if 'cols' in tgroup.attrib['cols']: ncols = int(tgroup.attrib['cols']) else None
 
+
+            
+            # remove the last & in the row.
             self.content['text'] = self.content['text'].replace(r'& \\', r' \\')
 
 
@@ -385,7 +442,7 @@ def unescape(text):
 
 def escape_latex(text):
     '''Escape some latex special characters'''
-    text = text.replace('&', '\&')
+#    text = text.replace('&', '\&')
 #   text = text.replace('_', '\_')
     text = text.replace('%', '\%')
     return text
