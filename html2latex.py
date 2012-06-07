@@ -483,7 +483,7 @@ def setup_texenv(loader):
 if __name__ == "__main__":
 
     extension = sys.argv[1].rsplit('.')[-1]
-
+    filename = sys.argv[1].rsplit('.')[-2].replace('/','')
     if extension == 'html':
         root = etree.HTML(open(sys.argv[1], 'r').read())
         loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/html')
@@ -499,11 +499,11 @@ if __name__ == "__main__":
         sys.exit()
 
 
-
+    print "Converting %s.%s" %(filename, extension)
     content = ''.join([delegate(element) for element in body])
-
-    main_template = texenv.get_template('maindoc.tex')
-
-    print unicode(unescape(main_template.render(content=content))).encode('utf-8')
+    main_template = texenv.get_template('doc.tex')
+    output = unicode(unescape(main_template.render(content=content))).encode('utf-8')
+    open('%s.tex'%filename, 'w').write(output)
+    print "Output written to %s.%s.tex"%(filename, extension)
     
 
