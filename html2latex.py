@@ -111,6 +111,9 @@ def delegate(element):
         myElement = exercises(element)
     elif element.tag == 'exercise':
         myElement = exercise(element)
+    elif element.tag == 'latex':
+        myElement = latex(element)
+
     else:
         # no special handling required
         myElement = html_element(element)
@@ -182,6 +185,12 @@ class math(html_element):
 
         self.content['text'] = text        
 
+class latex(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+        if 'begin{align' in self.content['text']:
+            self.content['text'] = self.content['text'].replace('$', '')
+       
 
 
 class worked_example(html_element):
@@ -255,7 +264,11 @@ class workstep(html_element):
 class listelement(html_element):
     def __init__(self, element):
         html_element.__init__(self, element)
-        list_type = element.attrib['list-type']
+        try:
+            list_type = element.attrib['list-type']
+        except KeyError:
+            list_type = 'bulleted'
+
         if list_type == 'enumerated':
             self.template = texenv.get_template('enumerated.tex')
         elif list_type == 'bulleted':
@@ -271,7 +284,12 @@ class section(html_element):
         titletext = delegate(title)
         element.remove(title)
         html_element.__init__(self, element)
-        self.template = texenv.get_template('%s.tex'%element.attrib['type'])
+        try:
+            self.template = texenv.get_template('%s.tex'%element.attrib['type'])
+        except KeyError:
+            # We're likely inside an activity or similar
+            self.template = texenv.get_template('generic_section.tex')
+
         self.content['title'] = titletext
 
 
@@ -299,12 +317,13 @@ class table(html_element):
             #cnxml table
             if 'latex-column-spec' in element.attrib:
                 self.content['columnspec'] = element.attrib['latex-column-spec']
-            elif element.find('.//tgroup'):
+            elif element.find('.//tgroup') is not None:
                 tgroup = element.find('.//tgroup')
-                if 'cols' in tgroup.attrib['cols']: ncols = int(tgroup.attrib['cols']) else None
+                if 'cols' in tgroup.attrib['cols']:
+                    ncols = int(tgroup.attrib['cols'])
+                else:
+                    ncols = None
 
-
-            
             # remove the last & in the row.
             self.content['text'] = self.content['text'].replace(r'& \\', r' \\')
 
