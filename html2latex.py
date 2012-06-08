@@ -31,6 +31,254 @@ def escape_tex(value):
         newval = pattern.sub(replacement, newval)
     return newval
 
+def etree_in_context(iNode, iContext):
+    parent = iNode.getparent()
+    while parent is not None:
+        if parent.tag == iContext:
+            return True
+        parent = parent.getparent()
+    return False
+
+
+def transform(dom):
+        # Currency
+        for currencyNode in dom.xpath('//currency'):
+            latexMode = etree_in_context(currencyNode, 'latex')
+            symbolNode = currencyNode.find('symbol')
+            if symbolNode is None:
+                symbol = 'R'
+                symbolLocation = 'front'
+            else:
+                symbol = symbolNode.text.strip()
+                symbolLocation = symbolNode.attrib.get('location', 'front')
+            numberNode = currencyNode.find('number')
+            if numberNode.text is None:
+                numberNode.text = ''
+            # Set default precision to 0 if number is an int, and to 2 if it is a float
+            try:
+                int(numberNode.text.strip())
+                defaultPrecision = 0
+            except ValueError:
+                defaultPrecision = 2
+            currencyPrecision = int(currencyNode.attrib.get('precision', defaultPrecision))
+            numberNode.text = ("%%.%if"%currencyPrecision)%float(numberNode.text.strip())
+
+            replacementNode = etree.Element('dummy')
+            if symbolLocation == 'front':
+                if latexMode:
+                    replacementNode.text = r'\text{' + symbol + ' }'
+                else:
+                    replacementNode.text = symbol + u'\u00a0'
+                replacementNode.append(numberNode)
+            else:
+                replacementNode.append(numberNode)
+                if latexMode:
+                    replacementNode.tail = r'\text{ ' + symbol + '}'
+                else:
+                    replacementNode.tail = u'\u00a0' + symbol
+            etree_replace_with_node_list(currencyNode.getparent(), currencyNode, replacementNode)
+
+        # Percentage
+        for percentageNode in dom.xpath('//percentage'):
+            latexMode = etree_in_context(percentageNode, 'latex')
+            percentageNode.tag = 'number'
+            if percentageNode.tail is None:
+                percentageNode.tail = ''
+            if latexMode:
+                percentageNode.tail = r'\%' + percentageNode.tail
+            else:
+                percentageNode.tail = '%' + percentageNode.tail
+
+        # United numbers: ensure that units follow numbers
+        for node in dom.xpath('//unit_number'):
+            if (len(node) == 2) and (node[0].tag == 'unit') and (node[1].tag == 'number'):
+                unitNode = node[0]
+                numberNode = node[1]
+                del node[0]
+                del node[0]
+                node.append(numberNode)
+                node.append(unitNode)
+
+        # Numbers
+        for numberNode in dom.xpath('//number'):
+            # Avoid shortcode exercise numbers
+            if (numberNode.getparent().tag == 'entry') and (numberNode.getparent().getparent().tag == 'shortcodes'):
+                continue
+            latexMode = etree_in_context(numberNode, 'latex')
+            if (len(numberNode) == 0) and ('e' in numberNode.text):
+                # Number in exponential notation: convert to <coeff> and <exp>
+                numberText = numberNode.text
+                float(numberText) # Check that it is really a float
+                numberNode.text = None
+                numberNode.append(etree.Element('coeff'))
+                pos = numberText.find('e')
+                numberNode[-1].text = numberText[:pos]
+                numberNode.append(etree.Element('exp'))
+                numberNode[-1].text = str(int(numberText[pos+1:]))
+
+            if len(numberNode) == 0:
+                # No children, means it's just a plain number
+                coeffText = format_number(numberNode.text.strip())
+                try:
+                    if latexMode:
+                        dummyNode = etree.fromstring(r'<dummy>\text{' + coeffText + '}</dummy>')
+                    else:
+                        dummyNode = etree.fromstring('<dummy>' + coeffText + '</dummy>')
+                except etree.XMLSyntaxError, msg:
+                    print repr(coeffText)
+                    raise etree.XMLSyntaxError, msg
+            else:
+                # Scientific or exponential notation: parse out coefficient, base and exponent
+                coeffNode = numberNode.find('coeff')
+                expNode = numberNode.find('exp')
+                baseNode = numberNode.find('base')
+                if coeffNode is None:
+                    # Exponential
+                    if baseNode is None:
+                        baseText = format_number('10')
+                    else:
+                        baseText = format_number(baseNode.text.strip())
+                    assert expNode is not None, etree.tostring(numberNode)
+                    expText = format_number(expNode.text.strip())
+                    if latexMode:
+                        dummyNode = etree.fromstring(r'<dummy>\text{' + baseText + r'}^{\text{' + expText + r'}}</dummy>')
+                    else:
+                        dummyNode = etree.fromstring('<dummy>' + baseText + '<sup>' + expText + '</sup></dummy>')
+                else:
+                    # Scientific notation or plain number (<coeff> only)
+                    coeffText = format_number(coeffNode.text.strip())
+                    if expNode is None:
+                        assert baseNode is None
+                        try:
+                            if latexMode:
+                                dummyNode = etree.fromstring(r'<dummy>\text{' + coeffText + '}</dummy>')
+                            else:
+                                dummyNode = etree.fromstring('<dummy>' + coeffText + '</dummy>')
+                        except etree.XMLSyntaxError, msg:
+                            print repr(coeffText)
+                            raise etree.XMLSyntaxError, msg
+                    else:
+                        if baseNode is None:
+                            baseText = format_number('10')
+                        else:
+                            baseText = format_number(baseNode.text.strip())
+                        expText = format_number(expNode.text.strip())
+                        if latexMode:
+                            dummyNode = etree.fromstring(r'<dummy>\text{' + coeffText + r' } &#215; \text{ ' + baseText + r'}^{\text{' + expText + r'}}</dummy>')
+                        else:
+                            dummyNode = etree.fromstring('<dummy>' + coeffText + ' &#215; ' + baseText + '<sup>' + expText + '</sup></dummy>')
+            etree_replace_with_node_list(numberNode.getparent(), numberNode, dummyNode)
+
+        # Units
+        for unitNode in dom.xpath('//unit'):
+            latexMode = etree_in_context(unitNode, 'latex')
+            if unitNode.text is None:
+                unitNode.text = ''
+            unitNode.text = unitNode.text.lstrip()
+            if latexMode:
+                unitNode.text = r'\text{' + unitNode.text
+            if len(unitNode) == 0:
+                unitNode.text = unitNode.text.rstrip()
+                if latexMode:
+                    unitNode.text += '}'
+            else:
+                if unitNode[-1].tail is None:
+                    unitNode[-1].tail = ''
+                unitNode[-1].tail = unitNode[-1].tail.rstrip()
+                if latexMode:
+                    unitNode[-1].tail += '}'
+            if (unitNode.getparent().tag == 'unit_number') and (unitNode.text[0] != u'\xb0'):
+                # Leave space between number and unit, except for degrees
+                if latexMode:
+                    unitNode.text = r'\ ' + unitNode.text
+                else:
+                    unitNode.text = ' ' + unitNode.text
+            for sup in unitNode:
+                assert sup.tag == 'sup'
+                if latexMode:
+                    sup.text = '$^{' + sup.text.strip() + '}$'
+                    etree_replace_with_node_list(unitNode, sup, sup)
+                else:
+                    sup.text = sup.text.strip().replace('-', u'\u2212')
+            etree_replace_with_node_list(unitNode.getparent(), unitNode, unitNode)
+
+        # United numbers
+        for node in dom.xpath('//unit_number'):
+            etree_replace_with_node_list(node.getparent(), node, node)
+
+def etree_replace_with_node_list(parent, child, dummyNode, keepTail=True):
+    index = parent.index(child)
+    if keepTail and (child.tail is not None):
+        childTail = child.tail
+    else:
+        childTail = ''
+    del parent[index]
+
+    if dummyNode.text is not None:
+        if index == 0:
+            if parent.text is None:
+                parent.text = dummyNode.text
+            else:
+                parent.text += dummyNode.text
+        else:
+            if parent[index-1].tail is None:
+                parent[index-1].tail = dummyNode.text
+            else:
+                parent[index-1].tail += dummyNode.text
+
+    if len(dummyNode) == 0:
+        if index == 0:
+            if parent.text is None:
+                parent.text = childTail
+            else:
+                parent.text += childTail
+        else:
+            if parent[index-1].tail is None:
+                parent[index-1].tail = childTail
+            else:
+                parent[index-1].tail += childTail
+    else:
+        if dummyNode[-1].tail is None:
+            dummyNode[-1].tail = childTail
+        else:
+            dummyNode[-1].tail += childTail
+        for i in range(len(dummyNode)-1, -1, -1):
+            parent.insert(index, dummyNode[i])
+
+def format_number(numString, decimalSeparator=',', thousandsSeparator=r'\ '):
+    """
+    Replace standard decimal point with new decimal separator
+    (default: comma); add thousands and thousandths separators
+    (default: non-breaking space).
+    """
+    if numString[0] in '+-':
+        sign = {'+': '+', '-': '&#8722;'}[numString[0]]
+        numString = numString[1:]
+    else:
+        sign = ''
+    decimalPos = numString.find('.')
+    if decimalPos == -1:
+        intPart = numString
+        fracPart = None
+    else:
+        intPart = numString[:decimalPos]
+        fracPart = numString[decimalPos+1:]
+    # Add thousands separator to integer part
+    if len(intPart) > 4:
+        pos = len(intPart)-3
+        while pos > 0:
+            intPart = intPart[:pos] + thousandsSeparator + intPart[pos:]
+            pos -= 3
+    # Add thousandths separator to fractional part
+    if (fracPart is not None) and (len(fracPart) > 4):
+        pos = 3
+        while pos < len(fracPart):
+            fracPart = fracPart[:pos] + thousandsSeparator + fracPart[pos:]
+            pos += 3 + len(thousandsSeparator)
+    numString = sign + intPart
+    if fracPart is not None:
+        numString += decimalSeparator + fracPart
+    return numString
 
 
 
@@ -113,6 +361,8 @@ def delegate(element):
         myElement = exercise(element)
     elif element.tag == 'latex':
         myElement = latex(element)
+#    elif element.tag == 'unit_number':
+#        myElement = unitnumber(element)
 
     else:
         # no special handling required
@@ -143,6 +393,7 @@ class html_element(object):
             self.template = texenv.get_template('not_implemented.tex')
         except TypeError:
             self.template = texenv.get_template('error.tex')
+#            print "Error in element: ", element 
 
         for a in self.element.attrib:
             self.content[a] = self.element.attrib[a]
@@ -178,8 +429,8 @@ class math(html_element):
        
         # fix the autosizing bracket issue. Must have matching brackets in every math environment.
         # If they don't match, remove the autosizing \left and \right
-        if text.count(r'\left') != text.count(r'\right'):
-            text = text.replace(r'\left', '').replace(r'\right', '')
+        if text.count('\\left') != text.count('\\right'):
+            text = text.replace('\\left', '').replace('\\right', '')
 
         # mathml tables with display
 
@@ -188,10 +439,12 @@ class math(html_element):
 class latex(html_element):
     def __init__(self, element):
         html_element.__init__(self, element)
-        self.content['text'] = self.content['text'].replace(r'$\begin{a',
-                r'\begin{a')
-       
-
+        text = self.content['text'].replace('$','')
+        if 'begin{align' in text:
+            self.content['text'] = r'\[' + self.content['text'].replace('$', '') + r'\]'
+        else:
+            self.content['text'] = '$' + self.content['text'].strip() + '$'
+        self.content['text'] = self.content['text'].replace('{align}', '{aligned}')
 
 class worked_example(html_element):
     def __init__(self, element):
@@ -220,11 +473,14 @@ class figure(html_element):
     def __init__(self, element):
         # basically a floating environment
         type_element = element.find('.//type')
-        typetext = type_element.text 
-        element.remove(type_element)
+        typetext = 'figure'
+        if type_element is not None:
+            typetext = type_element.text 
+            element.remove(type_element)
         html_element.__init__(self, element)
         self.template = texenv.get_template('figure.tex')
         self.content['type'] = typetext
+        self.content['text'] = self.content['text'].replace(r'\par', '')
 
 
 
@@ -302,6 +558,19 @@ class part(html_element):
         self.template = texenv.get_template('part.tex')
 
 
+class unitnumber(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+
+        # United numbers: ensure that units follow numbers
+        for node in element:
+            if (len(node) == 2) and (node[0].tag == 'unit') and (node[1].tag == 'number'):
+                unitNode = node[0]
+                numberNode = node[1]
+                del node[0]
+                del node[0]
+                node.append(numberNode)
+                node.append(unitNode)
 
 class table(html_element):
     def __init__(self, element):
@@ -468,7 +737,7 @@ def escape_latex(text):
     '''Escape some latex special characters'''
 #    text = text.replace('&', '\&')
 #   text = text.replace('_', '\_')
-    text = text.replace('%', '\%')
+#    text = text.replace('%', '\%')
 
     # fix some stuff
     text = text.replace(r'\rm', r'\mathrm')
@@ -499,6 +768,7 @@ if __name__ == "__main__":
         body = root.find('.//body')
     elif extension == 'cnxmlplus':
         root = etree.XML(open(sys.argv[1], 'r').read())
+        transform(root) 
         loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/cnxmlplus')
         texenv = setup_texenv(loader)
         body = root.find('.//content')
