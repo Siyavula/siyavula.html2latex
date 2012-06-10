@@ -441,10 +441,11 @@ class latex(html_element):
         html_element.__init__(self, element)
         text = self.content['text'].replace('$','')
         if 'begin{align' in text:
-            self.content['text'] = r'\[' + self.content['text'].replace('$', '') + r'\]'
+            self.content['text'] = r'$$' + self.content['text'].replace('$','') + r'$$'
         else:
             self.content['text'] = '$' + self.content['text'].strip() + '$'
         self.content['text'] = self.content['text'].replace('{align}', '{aligned}')
+        self.content['text'] = self.content['text'].replace(r'\lt', r'<')
 
 class worked_example(html_element):
     def __init__(self, element):
@@ -500,7 +501,7 @@ class exercises(html_element):
         element.remove(title)
 
         # change the entry children to ex_entry, they conflict with tables
-        for e in element.findall('.//entry'):
+        for e in element.findall('./entry'):
             e.tag = 'ex_entry'
 
         html_element.__init__(self, element)
@@ -584,19 +585,17 @@ class table(html_element):
             self.content['cols'] = '|' + '|'.join(['c' for i in range(int(ncols))]) + '|'
         else:
             #cnxml table
-#           if 'latex-column-spec' in element.attrib:
-#               self.content['columnspec'] = element.attrib['latex-column-spec']
-#           elif element.find('.//tgroup') is not None:
-#               tgroup = element.find('.//tgroup')
-#               if 'cols' in tgroup.attrib:
-#                   ncols = int(tgroup.attrib['cols'])
-#               else:
-            ncols = len(element.findall('.//entry')) / \
-            len(element.findall('.//row')) + 1
-            self.content['columnspec'] = '|c'*ncols + '|'
-                
-#            ncols = len(element.find('.//row').findall('.//entry'))
-
+            print "CNXML table"
+            if 'latex-column-spec' in element.attrib:
+                self.content['columnspec'] = element.attrib['latex-column-spec']
+            elif element.find('.//tgroup') is not None:
+                tgroup = element.find('.//tgroup')
+             #  if 'cols' in tgroup.attrib:
+             #      ncols = int(tgroup.attrib['cols'])
+             #      self.content['columnspec'] = '|c'*ncols + '|'
+             #  else:
+                ncols = len(element.find('.//row').findall('.//entry'))
+                self.content['columnspec'] = '|c'*ncols + '|'
             # remove the last & in the row.
             self.content['text'] = self.content['text'].replace(r'& \\', r' \\')
 
@@ -737,8 +736,8 @@ def escape_latex(text):
     '''Escape some latex special characters'''
 #    text = text.replace('&', '\&')
 #   text = text.replace('_', '\_')
-#    text = text.replace('%', '\%')
-
+    text = text.replace(r'%', r'\%')
+    text = text.replace(r'\\%', r'\%')
     # fix some stuff
     text = text.replace(r'\rm', r'\mathrm')
     return text
