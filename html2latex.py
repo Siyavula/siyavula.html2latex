@@ -442,6 +442,9 @@ class math(html_element):
         #fix the trig functions too
         trigfunctions = ['sin', 'cos', 'tan', 'cot']
 
+        # fix the \times symbol
+        text = text.replace(u'×', u'\\times')
+
         for tf in trigfunctions:
             text = text.replace(' ' + tf, "\\" + tf + ' ')
 
