@@ -282,6 +282,7 @@ def format_number(numString, decimalSeparator=',', thousandsSeparator=r'\ '):
 
 
 
+
 # Templates for each class here.
 def delegate(element):
     '''>>> from lxml import etree
@@ -433,8 +434,19 @@ class math(html_element):
             text = text.replace('\\left', '').replace('\\right', '')
 
         # mathml tables with display
+        self.content['text'] = text
+        
+        # replace the stackrel{^} with hat
+        text = text.replace(r'\stackrel{^}', '\hat')
 
-        self.content['text'] = text        
+        #fix the trig functions too
+        trigfunctions = ['sin', 'cos', 'tan', 'cot']
+
+        for tf in trigfunctions:
+            text = text.replace(' ' + tf, "\\" + tf + ' ')
+
+
+        self.content['text'] = text
 
 class latex(html_element):
     def __init__(self, element):
@@ -443,9 +455,28 @@ class latex(html_element):
         if 'begin{align' in text:
             self.content['text'] = r'$$' + self.content['text'].replace('$','') + r'$$'
         else:
-            self.content['text'] = '$' + self.content['text'].strip() + '$'
+            # avoid empty <latex> tags
+            if self.content['text'].strip() == '':
+                self.content['text'] = ' '
+            self.content['text'] = '$' + self.content['text'] + '$'
         self.content['text'] = self.content['text'].replace('{align}', '{aligned}')
         self.content['text'] = self.content['text'].replace(r'\lt', r'<')
+
+        # possible issue with $$ $$ or \[ \] modes inside a tabular.
+        # test that by changing to $ $ mode
+        ancestors = [a for a in element.iterancestors()]
+        inside_table = ['table' in a for a in ancestors]
+        if any(inside_table):
+            self.content['text'] = self.content['text'].replace('$$', '$')
+            self.content['text'] = self.content['text'].replace(r'\[', r'$')
+            self.content['text'] = self.content['text'].replace(r'\]', r'$')
+
+        # CNXMLPLUS files sometimes have open lines inside <latex> tags. Remove them.
+        text = self.content['text']
+        lines = text.split('\n')
+        text = '\n'.join([l for l in lines if len(l.strip()) > 0])
+
+        self.content['text'] = text
 
 class worked_example(html_element):
     def __init__(self, element):
@@ -585,7 +616,6 @@ class table(html_element):
             self.content['cols'] = '|' + '|'.join(['c' for i in range(int(ncols))]) + '|'
         else:
             #cnxml table
-            print "CNXML table"
             if 'latex-column-spec' in element.attrib:
                 self.content['columnspec'] = element.attrib['latex-column-spec']
             elif element.find('.//tgroup') is not None:
@@ -599,7 +629,13 @@ class table(html_element):
             # remove the last & in the row.
             self.content['text'] = self.content['text'].replace(r'& \\', r' \\')
 
+            text = self.content['text'] 
+            # cannot use $$ $$ or \[ \] math modes inside tabulars
+            text = text.replace('$$', '$')
+            text = text.replace('\\[', '$')
+            text = text.replace('\\]', '$')
 
+            self.content['text'] = text
 
         
         self.template = texenv.get_template('table.tex')
