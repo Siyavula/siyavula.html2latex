@@ -443,7 +443,7 @@ class math(html_element):
         trigfunctions = ['sin', 'cos', 'tan', 'cot']
 
         # fix the \times symbol
-        text = text.replace(u'×', u'\\times')
+        text = text.replace(u'×', u' \\times ')
 
         for tf in trigfunctions:
             text = text.replace(' ' + tf, "\\" + tf + ' ')
@@ -506,6 +506,12 @@ class definition(html_element):
 
 class figure(html_element):
     def __init__(self, element):
+        
+        # Check if the parent is a floating environment, can't nest them.
+        floats = ['exercise', 'worked_example', 'activity', 'exercises']
+        ancestors = [a for a in element.iterancestors()]
+        inside_float = any([a.tag in floats for a in ancestors])
+        print inside_float 
         # basically a floating environment
         type_element = element.find('.//type')
         typetext = 'figure'
@@ -516,7 +522,6 @@ class figure(html_element):
         self.template = texenv.get_template('figure.tex')
         self.content['type'] = typetext
         self.content['text'] = self.content['text'].replace(r'\par', '')
-
 
 
 class exercise(html_element):
@@ -797,6 +802,7 @@ def setup_texenv(loader):
 
 if __name__ == "__main__":
 
+    Textbook = True
     extension = sys.argv[1].rsplit('.')[-1]
     filename = sys.argv[1].rsplit('.')[-2].replace('/','')
     if extension == 'html':
@@ -810,10 +816,15 @@ if __name__ == "__main__":
         loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/cnxmlplus')
         texenv = setup_texenv(loader)
         body = root.find('.//content')
+    
+        if Textbook:
+            # remove the solution tags if its a textbook
+            for e in body.findall('.//solution'):
+                e.getparent().remove(e)
     else:
         print 'Unknown extension on input file type!!'
         sys.exit()
-
+    
 
     print "Converting %s.%s" %(filename, extension)
     content = ''.join([delegate(element) for element in body])
