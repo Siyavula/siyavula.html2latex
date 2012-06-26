@@ -291,6 +291,10 @@ def delegate(element):
        \chapter{Title}'''
     #print '%', element.tag, element.attrib
     # delegate the work to classes handling special cases
+
+    # filter out empty tags
+
+
     if element.tag == 'div':
         if 'class' not in element.attrib:
             element.attrib['class'] = ''
@@ -407,7 +411,11 @@ class html_element(object):
 
         
     def render(self):
-        return self.template.render(content=self.content)
+        # return an empty string if the content is empty
+        if self.content['text'].strip() == '':
+            return ''
+        else:
+            return self.template.render(content=self.content)
 
     def render_children(self):
         for child in self.element:
@@ -616,7 +624,7 @@ class table(html_element):
     def __init__(self, element):
         html_element.__init__(self, element)
         # check whether its html or cnxml table
-        if element.find('.//tr'):
+        if element.find('.//tr') is not None:
             # html table
             # must get number of columns
             ncols = len(element.find('.//tr').findall('.//td')) + 1
@@ -657,22 +665,27 @@ class img(html_element):
         name = src.rpartition('/')[-1]
         self.content['imagename'] = name
 
-        downloaded = any([name in imname for imname in os.listdir(os.curdir + '/images')])
+        try:
+            downloaded = any([name in imname for imname in os.listdir(os.curdir + '/images')])
+        except OSError:
+            downloaded = False
 
         if not downloaded: 
-            img = urllib.urlopen(src).read()
-            open('images/%s'%name, 'wb').write(img)
-            # now open the file and read the mimetpye
             try:
-                im = Image.open('images/%s'%name)
-                extension = image_types[im.format]
-                os.system('mv images/%s images/%s'%(name, name+extension))
-                # update the image name that the template will see
-                self.content['imagename'] = name + extension
-            except:
-                print "Cannot open image: %s"%name
-            
+                img = urllib.urlopen(src).read()
+                open('images/%s'%name, 'wb').write(img)
+                # now open the file and read the mimetpye
+                try:
+                    im = Image.open('images/%s'%name)
+                    extension = image_types[im.format]
+                    os.system('mv images/%s images/%s'%(name, name+extension))
+                    # update the image name that the template will see
+                    self.content['imagename'] = name + extension
+                except:
+                    print "Cannot open image: %s"%name
 
+            except IOError:
+                print "Image %s not found at %s" % (name, src)
 
 
 class div_keyconcepts(html_element):
@@ -778,8 +791,8 @@ def unescape(text):
 
 def escape_latex(text):
     '''Escape some latex special characters'''
-#    text = text.replace('&', '\&')
-#   text = text.replace('_', '\_')
+    text = text.replace('&', '\&')
+    text = text.replace('_', '\_')
     text = text.replace(r'%', r'\%')
     text = text.replace(r'\\%', r'\%')
     # fix some stuff
