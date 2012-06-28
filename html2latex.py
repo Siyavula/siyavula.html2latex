@@ -322,7 +322,6 @@ def delegate(element):
         
         elif 'activity-' in element.attrib['class']:
             myElement = div_investigation_header(element)
-        
 
         else:
             myElement = html_element(element)
@@ -412,16 +411,18 @@ class html_element(object):
         
     def render(self):
         # return an empty string if the content is empty
-        if self.content['text'].strip() == '':
-            return ''
-        else:
+#        if self.content['text'].strip() == '':
+#            return ''
+#        else:
             return self.template.render(content=self.content)
 
     def render_children(self):
         for child in self.element:
             self.content['text'] += delegate(child)
 
-
+    def remove_empty(self):
+        '''Must remove empty tags'''
+        pass
 
 class math(html_element):
     def __init__(self, element):
@@ -629,7 +630,9 @@ class table(html_element):
             # must get number of columns
             ncols = len(element.find('.//tr').findall('.//td')) + 1
             self.content['ncols'] = ncols + 1
-            self.content['cols'] = '|' + '|'.join(['c' for i in range(int(ncols))]) + '|'
+            # try a fancy column specifier for longtable
+            colspecifier = r">{\centering}p{%1.3f\textwidth}"%(float(1.0/ncols))
+            self.content['cols'] = '|' + '|'.join([colspecifier for i in range(int(ncols))]) + '|'
         else:
             #cnxml table
             if 'latex-column-spec' in element.attrib:
@@ -658,34 +661,45 @@ class table(html_element):
 
 class img(html_element):
     def __init__(self, element):
-        image_types = {'JPEG':'.jpg', 'PNG':'.png'}
+        image_types = {'JPEG':'.jpg', 'PNG':'.png', 'GIF':'.gif'}
         html_element.__init__(self, element)
         # get the link to the image and download it.
         src = element.attrib['src']
         name = src.rpartition('/')[-1]
         self.content['imagename'] = name
 
-        try:
-            downloaded = any([name in imname for imname in os.listdir(os.curdir + '/images')])
-        except OSError:
-            downloaded = False
+        print "Dealing with img"
+        print " ", self.content
+        self.template = texenv.get_template('img.tex')
 
-        if not downloaded: 
-            try:
-                img = urllib.urlopen(src).read()
-                open('images/%s'%name, 'wb').write(img)
-                # now open the file and read the mimetpye
-                try:
-                    im = Image.open('images/%s'%name)
-                    extension = image_types[im.format]
-                    os.system('mv images/%s images/%s'%(name, name+extension))
-                    # update the image name that the template will see
-                    self.content['imagename'] = name + extension
-                except:
-                    print "Cannot open image: %s"%name
+#       try:
+#           downloaded = any([name in imname for imname in os.listdir(os.curdir + '/images')])
+#       except OSError:
+#           try:
+#               downloaded = any([name in imname for imname in os.listdir(os.curdir + '/')])
+#           except OSError:
+#               downloaded = False
+#           downloaded = False
 
-            except IOError:
-                print "Image %s not found at %s" % (name, src)
+#       if not downloaded: 
+#           try:
+#               img = urllib.urlopen(src).read()
+#               open('images/%s'%name, 'wb').write(img)
+#               # now open the file and read the mimetpye
+#               try:
+#                   im = Image.open('images/%s'%name)
+#                   extension = image_types[im.format]
+#                   os.system('mv images/%s images/%s'%(name, name+extension))
+#                   # update the image name that the template will see
+#                   self.content['imagename'] = name + extension
+#               except:
+#                   print "Cannot open image: %s"%name
+
+#           except IOError:
+#               print "Image %s not found at %s" % (name, src)
+
+
+
 
 
 class div_keyconcepts(html_element):
@@ -813,11 +827,12 @@ def setup_texenv(loader):
     return texenv
 
 
+
 if __name__ == "__main__":
 
     Textbook = True
     extension = sys.argv[1].rsplit('.')[-1]
-    filename = sys.argv[1].rsplit('.')[-2].replace('/','')
+    filename = sys.argv[1].rsplit('.')[-2]
     if extension == 'html':
         root = etree.HTML(open(sys.argv[1], 'r').read())
         loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/html')
