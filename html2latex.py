@@ -640,24 +640,24 @@ class table(html_element):
         # check whether its html or cnxml table
         if element.find('.//tr') is not None:
             # html table
-            # must get number of columns
-            ncols = len(element.find('.//tr').findall('.//td'))
-            if ncols == 0:
-                ncols = len(element.find('.//tr').findall('.//th'))
+            # must get number of columns. # find maximum number of td elements in a single row
+            max_td = 0
+            for row in element.findall('.//tr'):
+                ncols = len(row.findall('.//td'))
+                max_td = max([max_td, ncols])
+                ncols = len(row.findall('.//th'))
+                max_td = max([max_td, ncols])
 
-            self.content['ncols'] = ncols 
-#           print 'DEBUG :\n\n'
-#           print ncols
-#           print etree.tostring(element,pretty_print=True)
-#           print '\n\n'
+            self.content['ncols'] = max_td
+            ncols = max_td
+            
             # try a fancy column specifier for longtable
             colspecifier = r">{\centering}p{%1.3f\textwidth}"%(float(1.0/ncols))
             self.content['cols'] = '|' + '|'.join([colspecifier for i in range(int(ncols))]) + '|'
-#           print self.content['text']
-#           self.content['text'] = '\n'.join('%'+t for t in '\\color{red}{Missing Table!}'
-            self.content['text'] = self.content['text'].replace(r'&  \\', r'\tabularnewline')
+            self.content['text'] = self.content['text'].replace(r'& \\ \hline', r'\\ \hline')
             self.content['text'] = self.content['text'].replace('\\par', ' ')
             self.content['text'] = self.content['text'].replace('\n','').replace('\\hline','\hline\n')
+            self.content['text'] = ''
         else:
             #cnxml table
             if 'latex-column-spec' in element.attrib:

@@ -1,1 +1,6 @@
-(((content.text.lstrip())))(((content.tail.rstrip()))) & 
+((* if content.colspan *))
+\multicolumn{(((content.colspan))){|c|} (((content.text.lstrip())))(((content.tail.rstrip()))) &
+((* else *))
+(((content.text.lstrip())))(((content.tail.rstrip()))) &
+((* endif *))
+
