@@ -1,3 +1,8 @@
-
+((*- if content.text.strip() != '' *))
 \par 
-(((content.text)))(((content.tail)))
+(((content.text)))
+((* else *))
+((* endif *))
+ (((- content.tail -)))
+
+

@@ -10,7 +10,6 @@ import urllib
 from lxml import etree
 from jinja2 import Template, FileSystemLoader, Environment
 from jinja2.exceptions import TemplateNotFound
-from PIL import Image
 
 # Some boilerplate to use jinja more elegantly with LaTeX
 # http://flask.pocoo.org/snippets/55/
@@ -331,6 +330,8 @@ def delegate(element):
 
     elif element.tag == 'img':
         myElement = img(element)
+    elif element.tag == 'a':
+        myElement = a(element)
     
     elif element.tag == 'h1':
         if 'class' not in element.attrib:
@@ -500,6 +501,18 @@ class worked_example(html_element):
         self.content['title'] = titletext
 
 
+class a(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+        # make it a url if the 'href' attribute is set
+        if 'href' in element.attrib.keys():
+            self.content['url'] = element.attrib['href']
+        else:
+            self.content['url'] = self.content['text']
+            
+
+
+
 class definition(html_element):
     def __init__(self, element):
         term = element.find('.//term')
@@ -628,11 +641,23 @@ class table(html_element):
         if element.find('.//tr') is not None:
             # html table
             # must get number of columns
-            ncols = len(element.find('.//tr').findall('.//td')) + 1
-            self.content['ncols'] = ncols + 1
+            ncols = len(element.find('.//tr').findall('.//td'))
+            if ncols == 0:
+                ncols = len(element.find('.//tr').findall('.//th'))
+
+            self.content['ncols'] = ncols 
+#           print 'DEBUG :\n\n'
+#           print ncols
+#           print etree.tostring(element,pretty_print=True)
+#           print '\n\n'
             # try a fancy column specifier for longtable
             colspecifier = r">{\centering}p{%1.3f\textwidth}"%(float(1.0/ncols))
             self.content['cols'] = '|' + '|'.join([colspecifier for i in range(int(ncols))]) + '|'
+#           print self.content['text']
+#           self.content['text'] = '\n'.join('%'+t for t in '\\color{red}{Missing Table!}'
+            self.content['text'] = self.content['text'].replace(r'&  \\', r'\tabularnewline')
+            self.content['text'] = self.content['text'].replace('\\par', ' ')
+            self.content['text'] = self.content['text'].replace('\n','').replace('\\hline','\hline\n')
         else:
             #cnxml table
             if 'latex-column-spec' in element.attrib:
@@ -668,8 +693,8 @@ class img(html_element):
         name = src.rpartition('/')[-1]
         self.content['imagename'] = name
 
-        print "Dealing with img"
-        print " ", self.content
+#        print "Dealing with img"
+#        print " ", self.content
         self.template = texenv.get_template('img.tex')
 
 #       try:
@@ -826,15 +851,33 @@ def setup_texenv(loader):
 
     return texenv
 
-
+def clean(text):
+    text = text.replace('Â', ' ')
+    text = text.replace('â', '')
+    text = text.replace('â', '')
+    text = text.replace('''''', '\n')
+    text = text.replace('â<80><99>', '')
+    text = text.replace('â', '')
+    return text
 
 if __name__ == "__main__":
 
     Textbook = True
-    extension = sys.argv[1].rsplit('.')[-1]
-    filename = sys.argv[1].rsplit('.')[-2]
+    extension = sys.argv[1].rpartition('.')[-1]
+    filename = sys.argv[1].rpartition('.')[-3]
     if extension == 'html':
-        root = etree.HTML(open(sys.argv[1], 'r').read())
+        f = open(sys.argv[1], 'r').read()
+        if f.strip() == '':
+            fout = open(sys.argv[1].replace('.html', '.tex'), 'w')
+            fout.write('''%empty input file''')
+            fout.close()
+            sys.exit()
+        try:
+            root = etree.HTML(open(sys.argv[1], 'r').read())
+        except:
+            print "Error: %s not valid" %sys.argv[1]
+            sys.exit()
+
         loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/html')
         texenv = setup_texenv(loader)
         body = root.find('.//body')
@@ -854,11 +897,12 @@ if __name__ == "__main__":
         sys.exit()
     
 
-    print "Converting %s.%s" %(filename, extension)
+#   print "Converting %s.%s" %(filename, extension)
     content = ''.join([delegate(element) for element in body])
     main_template = texenv.get_template('doc.tex')
     output = unicode(unescape(main_template.render(content=content))).encode('utf-8')
+    output = clean(output)
     open('%s.tex'%filename, 'w').write(output)
-    print "Output written to %s.%s.tex"%(filename, extension)
+#   print "Output written to %s.%s.tex"%(filename, extension)
     
 

@@ -1,2 +1,5 @@
-
-\section{(((content.text)))}(((content.tail)))
+((* if content.text.strip() != '' *))
+\section{(((content.text)))}
+((* else *))
+((* endif *))
+ (((- content.tail -)))

@@ -1,2 +1,5 @@
-\emph{(((content.text)))}
-(((content.tail))) 
+((* if content.text.strip() != '' *))
+\emph{(((content.text-)))} 
+((* else *))
+((* endif *))
+ (((-content.tail-))) 
