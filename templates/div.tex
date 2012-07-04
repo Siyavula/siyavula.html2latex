@@ -1,3 +1,5 @@
-%%% div (((content.class)))
+((* if content.text.strip() != '' *))
+((* if content.class.strip() != '' *)) \textcolor{red}{div (((content.class.strip())))} ((* endif *))
 (((content.text)))
+((* endif *))
 (((content.tail.strip())))

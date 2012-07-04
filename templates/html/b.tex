@@ -1,1 +1,6 @@
-\textbf{(((content.text)))} (((content.tail)))
+((* if 'ncludegraphics' not in content.text *))
+\textbf{(((content.text)))} 
+((* else *))
+(((content.text)))
+((* endif *))
+(((content.tail)))

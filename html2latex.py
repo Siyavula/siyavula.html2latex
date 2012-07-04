@@ -336,10 +336,14 @@ def delegate(element):
     elif element.tag == 'h1':
         if 'class' not in element.attrib:
             element.attrib['class'] = ''
-
-        if element.attrib['class'] == 'part':
+        elif element.attrib['class'] == '':
+            myElement = html_element(element)
+        elif element.attrib['class'] == 'part':
             myElement = part(element)
         elif element.attrib['class'] == 'chapter':
+            myElement = html_element(element)
+
+        else:
             myElement = html_element(element)
 
     #
@@ -372,6 +376,12 @@ def delegate(element):
     else:
         # no special handling required
         myElement = html_element(element)
+
+    try:
+        myElement
+    except NameError:
+        print "\n\nError with element!! %s\n\n"%etree.tostring(element)
+        return ''
 
     return myElement.render()
 
@@ -406,6 +416,8 @@ class html_element(object):
         #escape latex characters
         self.content['text'] = escape_latex(self.content['text'])
         self.content['tail'] = escape_latex(self.content['tail'])
+
+        self.content['text'] = clean(self.content['text'])
 
         self.render_children()
 
@@ -691,12 +703,9 @@ class img(html_element):
         # get the link to the image and download it.
         src = element.attrib['src']
         name = src.rpartition('/')[-1]
-        self.content['imagename'] = name
-
-#        print "Dealing with img"
-#        print " ", self.content
+        self.content['imagename'] = src
         self.template = texenv.get_template('img.tex')
-
+        
 #       try:
 #           downloaded = any([name in imname for imname in os.listdir(os.curdir + '/images')])
 #       except OSError:
@@ -782,9 +791,11 @@ class div_activity(html_element):
         # we need to prepare the title
         title_element = element.find('.//div[@class="activity-title"]')
         # get all the title text and remove from DOM
-        title = title_element.text + ''.join([t.text for t in title_element.findall('.//')])
-        element.remove(title_element)
-
+        if title_element is not None: 
+            title = title_element.text + ''.join([t.text for t in title_element.findall('.//')])
+            element.remove(title_element)
+        else:
+            title = 'None'
         html_element.__init__(self, element)
         self.content['title'] = title 
         self.template = texenv.get_template('activity.tex')
@@ -852,12 +863,16 @@ def setup_texenv(loader):
     return texenv
 
 def clean(text):
-    text = text.replace('Â', ' ')
-    text = text.replace('â', '')
-    text = text.replace('â', '')
-    text = text.replace('''''', '\n')
-    text = text.replace('â<80><99>', '')
-    text = text.replace('â', '')
+    text = text.replace(u'Â', ' ')
+    text = text.replace(u'â', '')
+    text = text.replace(u'â', '')
+    text = text.replace(u'''''', '\n')
+    text = text.replace(u'â', '\'')
+    text = text.replace(u'â', '')
+    text = text.replace(u'â', '``')
+    text = text.replace(u'â ', '\'\'')
+    text = text.replace(u'\u00a0', ' ')
+    text = text.replace(u'\u00c2', ' ')
     return text
 
 if __name__ == "__main__":
@@ -866,7 +881,7 @@ if __name__ == "__main__":
     extension = sys.argv[1].rpartition('.')[-1]
     filename = sys.argv[1].rpartition('.')[-3]
     if extension == 'html':
-        f = open(sys.argv[1], 'r').read()
+        f = open(sys.argv[1], 'r').read().decode('utf-8')
         if f.strip() == '':
             fout = open(sys.argv[1].replace('.html', '.tex'), 'w')
             fout.write('''%empty input file''')
@@ -901,7 +916,7 @@ if __name__ == "__main__":
     content = ''.join([delegate(element) for element in body])
     main_template = texenv.get_template('doc.tex')
     output = unicode(unescape(main_template.render(content=content))).encode('utf-8')
-    output = clean(output)
+    #output = clean(output)
     open('%s.tex'%filename, 'w').write(output)
 #   print "Output written to %s.%s.tex"%(filename, extension)
     
