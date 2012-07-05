@@ -1,6 +1,10 @@
 ((* if content.text.strip() != '' *))
 \begin{longtable}{(((content.cols)))}
 \hline
-(((content.text)))
+((* for t in content.text.split('\n') *))
+((* if 'longtable' not in t *))
+(((- t -)))
+((* endif *))
+((* endfor *))
 \end{longtable}
-((* endif *)) (((content.tail)))
+((* endif -*)) (((content.tail)))

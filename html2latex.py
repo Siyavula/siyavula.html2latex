@@ -313,15 +313,27 @@ def delegate(element):
         elif element.attrib['class'] == 'newwords':
             myElement = div_newwords(element)
 
+        elif element.attrib['class'] == 'didyouknow':
+            myElement = div_didyouknow(element)
+
         elif element.attrib['class'] == 'questions':
             myElement = div_questions(element)
 
+        elif element.attrib['class'] == 'project':
+            myElement = div_project(element)
+
+        elif element.attrib['class'] == 'teachersguide':
+            myElement = div_teachersguide(element)
+
+        elif element.attrib['class'] == 'visit':
+            myElement = div_visit(element)
+        
         elif 'investigation-' in element.attrib['class']:
             myElement = div_investigation_header(element)
         
         elif 'activity-' in element.attrib['class']:
             myElement = div_investigation_header(element)
-
+        
         else:
             myElement = html_element(element)
 
@@ -664,7 +676,7 @@ class table(html_element):
             ncols = max_td
             
             # try a fancy column specifier for longtable
-            colspecifier = r">{\centering}p{%1.3f\textwidth}"%(float(1.0/ncols))
+            colspecifier = r">{\centering}p{%1.3f\textwidth}"%(float(0.85/ncols))
             self.content['cols'] = '|' + '|'.join([colspecifier for i in range(int(ncols))]) + '|'
             self.content['text'] = self.content['text'].replace(r'& \\ \hline', r'\\ \hline')
             self.content['text'] = self.content['text'].replace('\\par', ' ')
@@ -757,6 +769,30 @@ class div_keyquestions(html_element):
         html_element.__init__(self, element)
         self.template = texenv.get_template('keyquestions.tex')
 
+class div_visit(html_element):
+    def __init__(self, element):
+        r'''convert the div.visit element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('visit.tex')
+
+class div_didyouknow(html_element):
+    def __init__(self, element):
+        r'''convert the div.didyouknow element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('didyouknow.tex')
+
+        
+class div_project(html_element):
+    def __init__(self, element):
+        r'''convert the div.project element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('project.tex')
 
 class div_questions(html_element):
     def __init__(self, element):
@@ -765,6 +801,15 @@ class div_questions(html_element):
 '''
         html_element.__init__(self, element)
         self.template = texenv.get_template('questions.tex')
+
+
+class div_teachersguide(html_element):
+    def __init__(self, element):
+        r'''convert the div.teachersguide element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('teachersguide.tex')
 
 class div_investigation(html_element):
     def __init__(self, element):
@@ -792,7 +837,10 @@ class div_activity(html_element):
         title_element = element.find('.//div[@class="activity-title"]')
         # get all the title text and remove from DOM
         if title_element is not None: 
-            title = title_element.text + ''.join([t.text for t in title_element.findall('.//')])
+            try:
+                title = title_element.text + ''.join([t.text for t in title_element.findall('.//')])
+            except TypeError:
+                title= ''
             element.remove(title_element)
         else:
             title = 'None'
@@ -915,7 +963,7 @@ if __name__ == "__main__":
 #   print "Converting %s.%s" %(filename, extension)
     content = ''.join([delegate(element) for element in body])
     main_template = texenv.get_template('doc.tex')
-    output = unicode(unescape(main_template.render(content=content))).encode('utf-8')
+    output = unicode(unescape(main_template.render(content=content))).encode('utf-8').replace(r'& \\ \hline', r'\\ \hline')
     #output = clean(output)
     open('%s.tex'%filename, 'w').write(output)
 #   print "Output written to %s.%s.tex"%(filename, extension)
