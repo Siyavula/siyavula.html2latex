@@ -1,1 +1,9 @@
- \emph{(((content.text.strip())))} (((content.tail.strip())))
+((* if content.effect == 'underline' *))
+ \uline{(((content.text.strip())))} 
+((* elif content.effect == 'bold' *))
+ \textbf{(((content.text.strip())))} 
+((* elif content.effect == 'italics' *))
+ \textit{(((content.text.strip())))} 
+((* else *))
+ \emph{(((content.text.strip())))} 
+((* endif *)) (((content.tail.strip())))

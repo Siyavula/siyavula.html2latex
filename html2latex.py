@@ -382,6 +382,8 @@ def delegate(element):
         myElement = exercise(element)
     elif element.tag == 'latex':
         myElement = latex(element)
+    elif element.tag == 'image':
+        myElement = image(element)
 #    elif element.tag == 'unit_number':
 #        myElement = unitnumber(element)
 
@@ -658,6 +660,24 @@ class unitnumber(html_element):
                 node.append(numberNode)
                 node.append(unitNode)
 
+
+
+class bettertable(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+        # check whether its html or cnxml table
+        if element.find('.//tr') is not None:
+            # html table
+            # must get number of columns. # find maximum number of td elements in a single row
+            max_td = 0
+            for row in element.findall('.//tr'):
+                ncols = len(row.findall('.//td'))
+                max_td = max([max_td, ncols])
+                ncols = len(row.findall('.//th'))
+                max_td = max([max_td, ncols])
+
+
+
 class table(html_element):
     def __init__(self, element):
         html_element.__init__(self, element)
@@ -681,27 +701,50 @@ class table(html_element):
             self.content['text'] = self.content['text'].replace(r'& \\ \hline', r'\\ \hline')
             self.content['text'] = self.content['text'].replace('\\par', ' ')
             self.content['text'] = self.content['text'].replace('\n','').replace('\\hline','\hline\n')
-            self.content['text'] = ''
+            #self.content['text'] = ''
         else:
             #cnxml table
+            # must get number of columns. # find maximum number of td elements in a single row
+            max_td = 0
+            for row in element.findall('.//row'):
+                ncols = len(row.findall('.//entry'))
+                max_td = max([max_td, ncols])
+
+            self.content['ncols'] = max_td
+            ncols = max_td
+            print '\n\nncols %s\n\n'%ncols
+            
             if 'latex-column-spec' in element.attrib:
                 self.content['columnspec'] = element.attrib['latex-column-spec']
             elif element.find('.//tgroup') is not None:
-                tgroup = element.find('.//tgroup')
-             #  if 'cols' in tgroup.attrib:
-             #      ncols = int(tgroup.attrib['cols'])
-             #      self.content['columnspec'] = '|c'*ncols + '|'
-             #  else:
-                ncols = len(element.find('.//row').findall('.//entry'))
-                self.content['columnspec'] = '|c'*ncols + '|'
-            # remove the last & in the row.
-            self.content['text'] = self.content['text'].replace(r'& \\', r' \\')
 
+                colspecifier = r">{\centering}p{%1.3f\textwidth}"%(float(0.85/ncols))
+                self.content['columnspec'] = '|' + '|'.join([colspecifier for i in range(int(ncols))]) + '|'
+#               tgroup = element.find('.//tgroup')
+#            #  if 'cols' in tgroup.attrib:
+#            #      ncols = int(tgroup.attrib['cols'])
+#            #      self.content['columnspec'] = '|c'*ncols + '|'
+#            #  else:
+#               ncols = len(element.find('.//row').findall('.//entry'))
+#               self.content['columnspec'] = '|c'*ncols + '|'
+            # remove the last & in the row.
+
+            # fix some stuff
+
+            self.content['text'] = self.content['text'].replace(r'& \\', r' \\')
+            self.content['text'] = self.content['text'].replace(r'& \tabularnewline', r' \tabularnewline')
             text = self.content['text'] 
             # cannot use $$ $$ or \[ \] math modes inside tabulars
             text = text.replace('$$', '$')
             text = text.replace('\\[', '$')
             text = text.replace('\\]', '$')
+            text = text.replace('\\begin{center}', '').replace('\\end{center}', '')
+            text = text.replace('\\par', '')
+
+            
+            # fix image widths if they are present
+
+
 
             self.content['text'] = text
 
@@ -744,6 +787,14 @@ class img(html_element):
 #           except IOError:
 #               print "Image %s not found at %s" % (name, src)
 
+class image(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+        specifier = '0.8\\textwidth'
+        if ('width' in self.content.keys()) and ('height' in self.content.keys()):
+            width = float(self.content['width'])/72.
+            height = float(self.content['height'])/72.
+            self.content['specifier'] = r'width=%1.2fin, height=%1.2fin'%(width, height)
 
 
 
@@ -944,7 +995,7 @@ if __name__ == "__main__":
         loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/html')
         texenv = setup_texenv(loader)
         body = root.find('.//body')
-    elif extension == 'cnxmlplus':
+    elif (extension == 'cnxmlplus') or (extension == 'cnxml'):
         root = etree.XML(open(sys.argv[1], 'r').read())
         transform(root) 
         loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/cnxmlplus')
