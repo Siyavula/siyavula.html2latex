@@ -361,7 +361,10 @@ def delegate(element):
     #
     # cnxmlplus tags 
     #
-
+    elif element.tag == 'activity':
+        myElement = activity(element)
+    elif element.tag == 'link':
+        myElement = link(element)
     elif element.tag == 'section':
         myElement = section(element)
     elif element.tag == '{http://www.w3.org/1998/Math/MathML}math':
@@ -428,10 +431,11 @@ class html_element(object):
             self.content[a] = self.element.attrib[a]
 
         #escape latex characters
+
+        self.content['text'] = clean(self.content['text'])
         self.content['text'] = escape_latex(self.content['text'])
         self.content['tail'] = escape_latex(self.content['tail'])
 
-        self.content['text'] = clean(self.content['text'])
 
         self.render_children()
 
@@ -525,6 +529,36 @@ class worked_example(html_element):
         html_element.__init__(self, element)
         self.template = texenv.get_template('worked_example.tex')
         self.content['title'] = titletext
+
+class activity(html_element):
+    def __init__(self, element):
+         
+        title = element.find('.//title')
+        if title is not None:
+            title_text = delegate(title)
+            element.remove(title)
+
+        html_element.__init__(self, element)
+        self.content['title'] = title_text
+
+        if 'type' in element.attrib.keys():
+            if element.attrib['type'] == 'activity':
+                self.template = texenv.get_template('activity.tex')
+       
+
+
+
+
+class link(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+        # make it a url if the 'href' attribute is set
+        if 'url' in element.attrib.keys():
+            self.content['url'] = escape_latex(element.attrib['url'])
+        else:
+            self.content['url'] = escape_latex(self.content['text'])
+
+
 
 
 class a(html_element):
@@ -628,11 +662,17 @@ class section(html_element):
         titletext = delegate(title)
         element.remove(title)
         html_element.__init__(self, element)
+
+        sectiondepth = {0:'chapter', 1:'section', 2:'subsection', 3:'subsubsection'}
         try:
             self.template = texenv.get_template('%s.tex'%element.attrib['type'])
         except KeyError:
-            # We're likely inside an activity or similar
-            self.template = texenv.get_template('generic_section.tex')
+            # find the depth of the section.
+            depth = 0
+            for a in element.iterancestors():
+                if a.tag == 'section': depth += 1
+
+            self.template = texenv.get_template('%s.tex'%sectiondepth[depth])
 
         self.content['title'] = titletext
 
@@ -743,11 +783,24 @@ class table(html_element):
 
             
             # fix image widths if they are present
+            lines = text.split('\n')
+            new_lines = []
+            for l in lines:
+                if 'includegraphics' in l:
+                    if ncols is not None:
+                        start = ''.join(l.partition('[')[0:2])
+                        middle = r'width=%1.3f\textwidth'%(float(0.75/ncols))
+                        end = ''.join(l.rpartition(']')[-2:])
+                        l = ''.join([start, middle, end])
 
+                new_lines.append(l)
+
+            text = '\n'.join(new_lines)
 
 
             self.content['text'] = text
 
+        
         
         self.template = texenv.get_template('table.tex')
 
@@ -794,7 +847,10 @@ class image(html_element):
         if ('width' in self.content.keys()) and ('height' in self.content.keys()):
             width = float(self.content['width'])/72.
             height = float(self.content['height'])/72.
-            self.content['specifier'] = r'width=%1.2fin, height=%1.2fin'%(width, height)
+            if width > 4.0:
+                self.content['specifier'] = r'width=4in'
+            else:
+                self.content['specifier'] = r'width=%1.2fin, height=%1.2fin'%(width, height)
 
 
 
@@ -972,6 +1028,15 @@ def clean(text):
     text = text.replace(u'â ', '\'\'')
     text = text.replace(u'\u00a0', ' ')
     text = text.replace(u'\u00c2', ' ')
+    
+    # replace the ________________ put in for answer lines by a more suitable construct
+    # find them using a regular expression
+
+    match = re.search(r"_{10,1000}", text)
+    if match:
+        matched_string = text[match.start():match.end()]
+        text = text.replace(matched_string, r'\vspace{2\baselineskip}\hrule')
+
     return text
 
 if __name__ == "__main__":
