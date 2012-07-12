@@ -708,14 +708,19 @@ class section(html_element):
         titletext = delegate(title)
         element.remove(title)
         html_element.__init__(self, element)
+
+        sectiondepth = {0:'chapter', 1:'section', 2:'subsection', 3:'subsubsection'}
         try:
             self.template = texenv.get_template('%s.tex'%element.attrib['type'])
         except KeyError:
-            # We're likely inside an activity or similar
-            self.template = texenv.get_template('generic_section.tex')
+            # find the depth of the section.
+            depth = 0
+            for a in element.iterancestors():
+                if a.tag == 'section': depth += 1
+
+            self.template = texenv.get_template('%s.tex'%sectiondepth[depth])
 
         self.content['title'] = titletext
-
 
 class part(html_element):
     def __init__(self, element):
@@ -763,32 +768,70 @@ class table(html_element):
             self.content['text'] = self.content['text'].replace(r'& \\ \hline', r'\\ \hline')
             self.content['text'] = self.content['text'].replace('\\par', ' ')
             self.content['text'] = self.content['text'].replace('\n','').replace('\\hline','\hline\n')
-            self.content['text'] = self.content['text'].replace('\n\n','\n')
+            #self.content['text'] = ''
         else:
             #cnxml table
+            # must get number of columns. # find maximum number of td elements in a single row
+            max_td = 0
+            for row in element.findall('.//row'):
+                ncols = len(row.findall('.//entry'))
+                max_td = max([max_td, ncols])
+
+            self.content['ncols'] = max_td
+            ncols = max_td
+            print '\n\nncols %s\n\n'%ncols
+            
             if 'latex-column-spec' in element.attrib:
                 self.content['columnspec'] = element.attrib['latex-column-spec']
             elif element.find('.//tgroup') is not None:
-                tgroup = element.find('.//tgroup')
-             #  if 'cols' in tgroup.attrib:
-             #      ncols = int(tgroup.attrib['cols'])
-             #      self.content['columnspec'] = '|c'*ncols + '|'
-             #  else:
-                ncols = len(element.find('.//row').findall('.//entry'))
-                self.content['columnspec'] = '|c'*ncols + '|'
-            # remove the last & in the row.
-            self.content['text'] = self.content['text'].replace(r'& \\', r' \\')
 
+                colspecifier = r">{\centering}p{%1.3f\textwidth}"%(float(0.85/ncols))
+                self.content['columnspec'] = '|' + '|'.join([colspecifier for i in range(int(ncols))]) + '|'
+#               tgroup = element.find('.//tgroup')
+#            #  if 'cols' in tgroup.attrib:
+#            #      ncols = int(tgroup.attrib['cols'])
+#            #      self.content['columnspec'] = '|c'*ncols + '|'
+#            #  else:
+#               ncols = len(element.find('.//row').findall('.//entry'))
+#               self.content['columnspec'] = '|c'*ncols + '|'
+            # remove the last & in the row.
+
+            # fix some stuff
+
+            self.content['text'] = self.content['text'].replace(r'& \\', r' \\')
+            self.content['text'] = self.content['text'].replace(r'& \tabularnewline', r' \tabularnewline')
             text = self.content['text'] 
             # cannot use $$ $$ or \[ \] math modes inside tabulars
             text = text.replace('$$', '$')
             text = text.replace('\\[', '$')
             text = text.replace('\\]', '$')
+            text = text.replace('\\begin{center}', '').replace('\\end{center}', '')
+            text = text.replace('\\par', '')
+
+            
+            # fix image widths if they are present
+            lines = text.split('\n')
+            new_lines = []
+            for l in lines:
+                if 'includegraphics' in l:
+                    if ncols is not None:
+                        start = ''.join(l.partition('[')[0:2])
+                        middle = r'width=%1.3f\textwidth'%(float(0.75/ncols))
+                        end = ''.join(l.rpartition(']')[-2:])
+                        l = ''.join([start, middle, end])
+
+                new_lines.append(l)
+
+            text = '\n'.join(new_lines)
+
 
             self.content['text'] = text
 
         
+        
         self.template = texenv.get_template('table.tex')
+
+
 
 class img(html_element):
     def __init__(self, element):
@@ -827,7 +870,17 @@ class img(html_element):
 #               print "Image %s not found at %s" % (name, src)
 
 
-
+class image(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+        specifier = '0.8\\textwidth'
+        if ('width' in self.content.keys()) and ('height' in self.content.keys()):
+            width = float(self.content['width'])/72.
+            height = float(self.content['height'])/72.
+            if width > 4.0:
+                self.content['specifier'] = r'width=4in'
+            else:
+                self.content['specifier'] = r'width=%1.2fin, height=%1.2fin'%(width, height)
 
 
 class div_keyconcepts(html_element):
