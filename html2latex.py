@@ -303,7 +303,25 @@ def delegate(element):
         
         elif element.attrib['class'] == 'keyquestions':
             myElement = div_keyquestions(element)
+
+        elif element.attrib['class'] == 'question':
+            myElement = div_question(element)
+
+        elif element.attrib['class'] == 'example':
+            myElement = div_example(element)
+
+        elif element.attrib['class'] == 'casestudy':
+            myElement = div_casestudy(element)
+
+        elif element.attrib['class'] == 'exproblem':
+            myElement = div_exproblem(element)
+
+        elif element.attrib['class'] == 'exsolution':
+            myElement = div_exsolution(element)
         
+        elif element.attrib['class'] == 'answer':
+            myElement = div_answer(element)
+
         elif element.attrib['class'] == 'investigation':
             myElement = div_investigation(element)
         
@@ -321,6 +339,15 @@ def delegate(element):
 
         elif element.attrib['class'] == 'project':
             myElement = div_project(element)
+
+        elif element.attrib['class'] == 'aside':
+            myElement = div_aside(element)
+
+        elif element.attrib['class'] == 'note':
+            myElement = div_note(element)
+
+        elif element.attrib['class'] == 'warning':
+            myElement = div_warning(element)
 
         elif element.attrib['class'] == 'teachersguide':
             myElement = div_teachersguide(element)
@@ -681,7 +708,7 @@ class table(html_element):
             self.content['text'] = self.content['text'].replace(r'& \\ \hline', r'\\ \hline')
             self.content['text'] = self.content['text'].replace('\\par', ' ')
             self.content['text'] = self.content['text'].replace('\n','').replace('\\hline','\hline\n')
-            self.content['text'] = ''
+            self.content['text'] = self.content['text'].replace('\n\n','\n')
         else:
             #cnxml table
             if 'latex-column-spec' in element.attrib:
@@ -769,6 +796,38 @@ class div_keyquestions(html_element):
         html_element.__init__(self, element)
         self.template = texenv.get_template('keyquestions.tex')
 
+class div_aside(html_element):
+    def __init__(self, element):
+        r'''convert the div.aside element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('aside.tex')
+
+class div_note(html_element):
+    def __init__(self, element):
+        r'''convert the div.note element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('note.tex')
+
+class div_warning(html_element):
+    def __init__(self, element):
+        r'''convert the div.warning element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('warning.tex')
+
+class div_casestudy(html_element):
+    def __init__(self, element):
+        r'''convert the div.casestudy element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('casestudy.tex')
+
 class div_visit(html_element):
     def __init__(self, element):
         r'''convert the div.visit element to latex
@@ -801,6 +860,59 @@ class div_questions(html_element):
 '''
         html_element.__init__(self, element)
         self.template = texenv.get_template('questions.tex')
+
+
+class div_answer(html_element):
+    def __init__(self, element):
+        r'''convert the div.answer element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('answer.tex')
+
+class div_example(html_element):
+    def __init__(self, element):
+        r'''convert the div.example element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('example.tex')
+
+class div_exproblem(html_element):
+    def __init__(self, element):
+        r'''convert the div.exproblem element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('exproblem.tex')
+
+
+class div_exsolution(html_element):
+    def __init__(self, element):
+        r'''convert the div.exsolution element to latex
+
+'''
+        html_element.__init__(self, element)
+        self.template = texenv.get_template('exsolution.tex')
+
+class div_question(html_element):
+    def __init__(self, element):
+        r'''convert the div.question element to latex
+
+'''
+        # get the answer element
+        answer = element.find('.//div[@class="answer"]')
+        if answer is not None:
+            answertext = delegate(answer)
+            element.remove(answer)
+            html_element.__init__(self, element)
+            self.content['answer'] = answertext
+        else:
+            html_element.__init__(self, element)
+            self.content['answer'] = ''
+
+        self.template = texenv.get_template('question.tex')
+        
 
 
 class div_teachersguide(html_element):
@@ -928,6 +1040,7 @@ if __name__ == "__main__":
     Textbook = True
     extension = sys.argv[1].rpartition('.')[-1]
     filename = sys.argv[1].rpartition('.')[-3]
+    print extension, filename
     if extension == 'html':
         f = open(sys.argv[1], 'r').read().decode('utf-8')
         if f.strip() == '':
@@ -944,17 +1057,20 @@ if __name__ == "__main__":
         loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/html')
         texenv = setup_texenv(loader)
         body = root.find('.//body')
-    elif extension == 'cnxmlplus':
+    elif (extension == 'cnxmlplus') or (extension == 'cnxml'):
         root = etree.XML(open(sys.argv[1], 'r').read())
         transform(root) 
         loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/cnxmlplus')
         texenv = setup_texenv(loader)
         body = root.find('.//content')
+
+        print body
     
         if Textbook:
             # remove the solution tags if its a textbook
             for e in body.findall('.//solution'):
-                e.getparent().remove(e)
+                if type(e) is not NoneType:
+                    e.getparent().remove(e)
     else:
         print 'Unknown extension on input file type!!'
         sys.exit()

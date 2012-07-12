@@ -1,6 +1,6 @@
 ((* if 'ncludegraphics' not in content.text *))
-\textbf{(((content.text)))} 
-((* else *))
+((*- if content.text.strip() != '' -*)) \textbf{(((content.text)))} ((*- endif -*))
+((*- else *))
 (((content.text)))
 ((* endif *))
 (((content.tail)))
