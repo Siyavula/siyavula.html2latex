@@ -388,7 +388,12 @@ def delegate(element):
     #
     # cnxmlplus tags 
     #
-
+    elif  element.tag == 'note':
+        myElement = note(element)
+    elif element.tag == 'activity':
+        myElement = activity(element)
+    elif element.tag == 'link':
+        myElement = link(element)
     elif element.tag == 'section':
         myElement = section(element)
     elif element.tag == '{http://www.w3.org/1998/Math/MathML}math':
@@ -409,6 +414,8 @@ def delegate(element):
         myElement = exercise(element)
     elif element.tag == 'latex':
         myElement = latex(element)
+    elif element.tag == 'image':
+        myElement = image(element)
 #    elif element.tag == 'unit_number':
 #        myElement = unitnumber(element)
 
@@ -453,6 +460,8 @@ class html_element(object):
             self.content[a] = self.element.attrib[a]
 
         #escape latex characters
+
+        self.content['text'] = clean(self.content['text'])
         self.content['text'] = escape_latex(self.content['text'])
         self.content['tail'] = escape_latex(self.content['tail'])
 
@@ -550,6 +559,52 @@ class worked_example(html_element):
         html_element.__init__(self, element)
         self.template = texenv.get_template('worked_example.tex')
         self.content['title'] = titletext
+
+
+class note(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+
+        if 'type' in element.attrib.keys():
+            self.content['type'] = element.attrib['type']
+        else:
+            self.content['type'] = 'note'
+
+        self.template = texenv.get_template('note.tex')
+
+class activity(html_element):
+    def __init__(self, element):
+         
+        title = element.find('.//title')
+        if title is not None:
+            title_text = delegate(title)
+            element.remove(title)
+        else:
+            title_text = ''
+
+        html_element.__init__(self, element)
+        self.content['title'] = title_text
+
+        if 'type' in element.attrib.keys():
+            self.content['type'] = element.attrib['type']
+        else:
+            self.content['type'] = 'activity'
+       
+
+        self.template = texenv.get_template('activity.tex')
+
+
+
+class link(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+        # make it a url if the 'href' attribute is set
+        if 'url' in element.attrib.keys():
+            self.content['url'] = escape_latex(element.attrib['url'])
+        else:
+            self.content['url'] = escape_latex(self.content['text'])
+
+
 
 
 class a(html_element):
@@ -1026,7 +1081,8 @@ def clean(text):
     text = text.replace(u'Â', ' ')
     text = text.replace(u'â', '')
     text = text.replace(u'â', '')
-    text = text.replace(u'''''', '\n')
+    text = text.replace(u'''
+''', '\n')
     text = text.replace(u'â', '\'')
     text = text.replace(u'â', '')
     text = text.replace(u'â', '``')
