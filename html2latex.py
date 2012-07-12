@@ -361,6 +361,8 @@ def delegate(element):
     #
     # cnxmlplus tags 
     #
+    elif  element.tag == 'note':
+        myElement = note(element)
     elif element.tag == 'activity':
         myElement = activity(element)
     elif element.tag == 'link':
@@ -530,6 +532,18 @@ class worked_example(html_element):
         self.template = texenv.get_template('worked_example.tex')
         self.content['title'] = titletext
 
+
+class note(html_element):
+    def __init__(self, element):
+        html_element.__init__(self, element)
+
+        if 'type' in element.attrib.keys():
+            self.content['type'] = element.attrib['type']
+        else:
+            self.content['type'] = 'note'
+
+        self.template = texenv.get_template('note.tex')
+
 class activity(html_element):
     def __init__(self, element):
          
@@ -537,15 +551,19 @@ class activity(html_element):
         if title is not None:
             title_text = delegate(title)
             element.remove(title)
+        else:
+            title_text = ''
 
         html_element.__init__(self, element)
         self.content['title'] = title_text
 
         if 'type' in element.attrib.keys():
-            if element.attrib['type'] == 'activity':
-                self.template = texenv.get_template('activity.tex')
+            self.content['type'] = element.attrib['type']
+        else:
+            self.content['type'] = 'activity'
        
 
+        self.template = texenv.get_template('activity.tex')
 
 
 
