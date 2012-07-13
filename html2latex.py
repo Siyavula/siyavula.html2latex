@@ -441,7 +441,7 @@ class html_element(object):
         self.content['text'] = self.element.text if self.element.text is not None else ''
         self.content['tail'] = self.element.tail.strip() if self.element.tail is not None else ''
  
-        self.content['tag'] = self.element.tag
+        self.content['tag'] = escape_latex(self.element.tag)
 
         try:
             self.content['class'] = self.element.attrib['class']
