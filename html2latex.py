@@ -292,8 +292,11 @@ def delegate(element):
     # delegate the work to classes handling special cases
 
     # filter out empty tags
-
-
+    try:
+        temp = element.tag
+    except AttributeError:
+        print element
+    print element.tag
     if element.tag == 'div':
         if 'class' not in element.attrib:
             element.attrib['class'] = ''
@@ -655,8 +658,10 @@ class figure(html_element):
 class exercise(html_element):
     def __init__(self, element):
         title = element.find('.//title')
-        titletext = delegate(title)
-        element.remove(title)
+        if title is not None:
+            titletext = delegate(title)
+            element.remove(title)
+        else: titletext = ""
         html_element.__init__(self, element)
         self.template = texenv.get_template('exercise.tex')
         self.content['title'] = titletext
@@ -1175,11 +1180,11 @@ if __name__ == "__main__":
 
         print body
     
-        if Textbook:
-            # remove the solution tags if its a textbook
-            for e in body.findall('.//solution'):
-                if type(e) is not NoneType:
-                    e.getparent().remove(e)
+#       if Textbook:
+#           # remove the solution tags if its a textbook
+#           for e in body.findall('.//solution'):
+#               if type(e) is not NoneType:
+#                   e.getparent().remove(e)
     else:
         print 'Unknown extension on input file type!!'
         sys.exit()
