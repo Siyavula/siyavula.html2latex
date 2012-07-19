@@ -878,14 +878,15 @@ class img(html_element):
 class image(html_element):
     def __init__(self, element):
         html_element.__init__(self, element)
-        specifier = '0.8\\textwidth'
-        if ('width' in self.content.keys()) and ('height' in self.content.keys()):
-            width = float(self.content['width'])/72.
-            height = float(self.content['height'])/72.
-            if width > 4.0:
-                self.content['specifier'] = r'width=4in'
-            else:
-                self.content['specifier'] = r'width=%1.2fin, height=%1.2fin'%(width, height)
+        specifier = 'width=0.8\\textwidth'
+        self.content['specifier'] = specifier
+#       if ('width' in self.content.keys()) and ('height' in self.content.keys()):
+#           width = float(self.content['width'])/72.
+#           height = float(self.content['height'])/72.
+#           if width > 4.0:
+#               self.content['specifier'] = r'width=4in'
+#           else:
+#               self.content['specifier'] = r'width=%1.2fin, height=%1.2fin'%(width, height)
 
 
 class div_keyconcepts(html_element):
