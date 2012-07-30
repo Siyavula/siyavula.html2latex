@@ -296,7 +296,7 @@ def delegate(element):
         temp = element.tag
     except AttributeError:
         print element
-    print element.tag
+    #print element.tag
     if element.tag == 'div':
         if 'class' not in element.attrib:
             element.attrib['class'] = ''
@@ -1116,8 +1116,10 @@ def unescape(text):
 def escape_latex(text):
     '''Escape some latex special characters'''
     text = text.replace('&', '\&')
+    text = text.replace('#', '\#')
     text = text.replace('_', '\_')
     text = text.replace(r'%', r'\%')
+    text = text.replace(r'\\%', r'\%')
     text = text.replace(r'\\%', r'\%')
     # fix some stuff
     text = text.replace(r'\rm', r'\mathrm')
