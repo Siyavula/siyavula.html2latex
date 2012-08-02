@@ -422,6 +422,8 @@ def delegate(element):
 #    elif element.tag == 'unit_number':
 #        myElement = unitnumber(element)
 
+    elif isinstance(element, etree._Comment):
+        myElement = None # skip XML comments
     else:
         # no special handling required
         myElement = html_element(element)
@@ -432,7 +434,10 @@ def delegate(element):
         print "\n\nError with element!! %s\n\n"%etree.tostring(element)
         return ''
 
-    return myElement.render()
+    if myElement is None:
+        return ''
+    else:
+        return myElement.render()
 
 
 class html_element(object):
