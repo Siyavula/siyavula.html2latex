@@ -8,12 +8,35 @@ import re, htmlentitydefs
 import urllib
 
 from lxml import etree
-from jinja2 import Template, FileSystemLoader, Environment
+import jinja2
 from jinja2.exceptions import TemplateNotFound
+
+
+# Functions for outputting message to stderr
+
+def warning_message(message, newLine=True):
+    '''Output a warning message to stderr.'''
+    sys.stderr.write('WARNING: ' + message)
+    if newLine:
+        sys.stderr.write('\n')
+
+def information_message(message, newLine=True):
+    '''Output an information message to stderr.'''
+    sys.stderr.write('INFO: ' + message)
+    if newLine:
+        sys.stderr.write('\n')
+
+def error_message(message, newLine=True, terminate=True):
+    global commandlineArguments
+    sys.stderr.write('ERROR: ' + message)
+    if newLine:
+        sys.stderr.write('\n')
+    if terminate:
+        sys.exit()
+
 
 # Some boilerplate to use jinja more elegantly with LaTeX
 # http://flask.pocoo.org/snippets/55/
-
 
 LATEX_SUBS = (
     (re.compile(r'\\'), r'\\textbackslash'),
@@ -29,6 +52,9 @@ def escape_tex(value):
     for pattern, replacement in LATEX_SUBS:
         newval = pattern.sub(replacement, newval)
     return newval
+
+
+# 
 
 def etree_in_context(iNode, iContext):
     parent = iNode.getparent()
@@ -288,15 +314,14 @@ def delegate(element):
        >>> root = etree.HTML('<h1>Title</h1>')
        >>> print delegate(root[0][0])
        \chapter{Title}'''
-    #print '%', element.tag, element.attrib
     # delegate the work to classes handling special cases
 
-    # filter out empty tags
+    # Filter out empty tags
     try:
         temp = element.tag
     except AttributeError:
-        print element
-    #print element.tag
+        warning_message("Could not determine tag of element: %s"%(repr(element)))
+
     if element.tag == 'div':
         if 'class' not in element.attrib:
             element.attrib['class'] = ''
@@ -431,7 +456,7 @@ def delegate(element):
     try:
         myElement
     except NameError:
-        print "\n\nError with element!! %s\n\n"%etree.tostring(element)
+        error_message("Error with element!! %s\n\n"%etree.tostring(element), terminate=False)
         return ''
 
     if myElement is None:
@@ -461,8 +486,8 @@ class html_element(object):
         except TemplateNotFound:
             self.template = texenv.get_template('not_implemented.tex')
         except TypeError:
+            error_message("Error in element: " + repr(element), terminate=False)
             self.template = texenv.get_template('error.tex')
-#            print "Error in element: ", element 
 
         for a in self.element.attrib:
             self.content[a] = self.element.attrib[a]
@@ -647,7 +672,6 @@ class figure(html_element):
         floats = ['exercise', 'worked_example', 'activity', 'exercises']
         ancestors = [a for a in element.iterancestors()]
         inside_float = any([a.tag in floats for a in ancestors])
-        print inside_float 
         # basically a floating environment
         type_element = element.find('.//type')
         typetext = 'figure'
@@ -789,7 +813,6 @@ class table(html_element):
 
             self.content['ncols'] = max_td
             ncols = max_td
-            print '\n\nncols %s\n\n'%ncols
             
             if 'latex-column-spec' in element.attrib:
                 self.content['columnspec'] = element.attrib['latex-column-spec']
@@ -1132,7 +1155,7 @@ def escape_latex(text):
 
 
 def setup_texenv(loader):
-    texenv = Environment(loader=loader)
+    texenv = jinja2.Environment(loader=loader)
     texenv.block_start_string = '((*'
     texenv.block_end_string = '*))'
     texenv.variable_start_string = '((('
@@ -1162,7 +1185,7 @@ if __name__ == "__main__":
     Textbook = True
     extension = sys.argv[1].rpartition('.')[-1]
     filename = sys.argv[1].rpartition('.')[-3]
-    print extension, filename
+    information_message(extension + ' ' + filename)
     if extension == 'html':
         f = open(sys.argv[1], 'r').read().decode('utf-8')
         if f.strip() == '':
@@ -1173,37 +1196,29 @@ if __name__ == "__main__":
         try:
             root = etree.HTML(open(sys.argv[1], 'r').read())
         except:
-            print "Error: %s not valid" %sys.argv[1]
-            sys.exit()
+            error_message(sys.argv[1] + " not valid")
 
-        loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/html')
+        loader = jinja2.FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/html')
         texenv = setup_texenv(loader)
         body = root.find('.//body')
     elif (extension == 'cnxmlplus') or (extension == 'cnxml'):
         root = etree.XML(open(sys.argv[1], 'r').read())
         transform(root) 
-        loader = FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/cnxmlplus')
+        loader = jinja2.FileSystemLoader(os.path.dirname(os.path.realpath(__file__)) + '/templates/cnxmlplus')
         texenv = setup_texenv(loader)
         body = root.find('.//content')
-
-        print body
-    
 #       if Textbook:
 #           # remove the solution tags if its a textbook
 #           for e in body.findall('.//solution'):
 #               if type(e) is not NoneType:
 #                   e.getparent().remove(e)
     else:
-        print 'Unknown extension on input file type!!'
-        sys.exit()
-    
+        error_message('Unknown extension on input file type!')
 
-#   print "Converting %s.%s" %(filename, extension)
+    information_message("Converting %s.%s" %(filename, extension))
     content = ''.join([delegate(element) for element in body])
     main_template = texenv.get_template('doc.tex')
     output = unicode(unescape(main_template.render(content=content))).encode('utf-8').replace(r'& \\ \hline', r'\\ \hline')
     #output = clean(output)
     open('%s.tex'%filename, 'w').write(output)
-#   print "Output written to %s.%s.tex"%(filename, extension)
-    
-
+    information_message("Output written to %s.%s.tex"%(filename, extension))
