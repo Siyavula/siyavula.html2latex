@@ -472,7 +472,12 @@ class html_element(object):
         # we make a general dict to store the contents we send to the Jinja templates.
         self.content = {}
         self.content['text'] = self.element.text if self.element.text is not None else ''
-        self.content['tail'] = self.element.tail.strip() if self.element.tail is not None else ''
+        tail = self.element.tail if self.element.tail is not None else ''
+        if (len(tail) > 0) and (tail[0] in [' \t\r\n']):
+            tail = ' ' + tail.lstrip()
+        if (len(tail) > 0) and (tail[-1] in [' \t\r\n']):
+            tail = tail.rstrip() + ' '
+        self.content['tail'] = tail
  
         self.content['tag'] = escape_latex(self.element.tag)
 
