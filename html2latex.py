@@ -637,8 +637,12 @@ class link(html_element):
     def __init__(self, element):
         html_element.__init__(self, element)
         # make it a url if the 'href' attribute is set
-        if 'url' in element.attrib.keys():
+        attributes = element.attrib.keys()
+        if 'url' in attributes:
             self.content['url'] = escape_latex(element.attrib['url'])
+        elif 'target-id' in attributes:
+            self.content['target_id'] = escape_latex(element.attrib['target-id'])
+            self.template = texenv.get_template('link-reference.tex')
         else:
             self.content['url'] = escape_latex(self.content['text'])
 
