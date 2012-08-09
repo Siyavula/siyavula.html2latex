@@ -444,8 +444,6 @@ def delegate(element):
         myElement = latex(element)
     elif element.tag == 'image':
         myElement = image(element)
-#    elif element.tag == 'unit_number':
-#        myElement = unitnumber(element)
 
     elif isinstance(element, etree._Comment):
         myElement = None # skip XML comments
@@ -561,6 +559,7 @@ class math(html_element):
 
 class latex(html_element):
     def __init__(self, element):
+        # align, align*, equation, equation*, eqnarray, eqnarray*
         html_element.__init__(self, element)
         text = self.content['text'].replace('$','')
         if 'begin{align' in text:
@@ -586,6 +585,8 @@ class latex(html_element):
         text = self.content['text']
         lines = text.split('\n')
         text = '\n'.join([l for l in lines if len(l.strip()) > 0])
+
+        text = unescape_latex(text) # Undo escaping since this is already latex
 
         self.content['text'] = text
 
@@ -1152,14 +1153,21 @@ def unescape(text):
 
 def escape_latex(text):
     '''Escape some latex special characters'''
-    text = text.replace('&', '\&')
-    text = text.replace('#', '\#')
-    text = text.replace('_', '\_')
+    text = text.replace(r'&', r'\&')
+    text = text.replace(r'#', r'\#')
+    text = text.replace(r'_', r'\_')
     text = text.replace(r'%', r'\%')
     text = text.replace(r'\\%', r'\%')
     text = text.replace(r'\\%', r'\%')
     # fix some stuff
     text = text.replace(r'\rm', r'\mathrm')
+    return text
+
+def unescape_latex(text):
+    text = text.replace(r'\%', r'%')
+    text = text.replace(r'\_', r'_')
+    text = text.replace(r'\#', r'#')
+    text = text.replace(r'\&', r'&')
     return text
 
 
