@@ -442,6 +442,8 @@ def delegate(element):
         myElement = exercise(element)
     elif element.tag == 'latex':
         myElement = latex(element)
+    elif element.tag in ['pspicture', 'tikzpicture']:
+        myElement = pstikzpicture(element)
     elif element.tag == 'image':
         myElement = image(element)
 
@@ -560,35 +562,53 @@ class math(html_element):
 class latex(html_element):
     def __init__(self, element):
         # align, align*, equation, equation*, eqnarray, eqnarray*
+        #import pdb
+        #pdb.set_trace()
+
         html_element.__init__(self, element)
-        text = self.content['text'].replace('$','')
-        if 'begin{align' in text:
-            self.content['text'] = r'$$' + self.content['text'].replace('$','') + r'$$'
+        text = unescape_latex(self.content['text'].strip()) # Undo escaping since this is already latex
+
+        attribDisplay = element.attrib.get('display', 'inline')
+        if attribDisplay == 'inline':
+            text = r'\(' + text + r'\)'
+        elif attribDisplay == 'block':
+            foundMathEnvironment = False
+            for environmentName in ['align', 'align*', 'equation', 'equation*', 'eqnarray', 'eqnarray*']:
+                substr = r'\begin{%s}'%environmentName
+                if text[:len(substr)] == substr:
+                    foundMathEnvironment = True
+                    break
+            if not foundMathEnvironment:
+                text = '\\[\n' + text + '\n\\]\n'
+            else:
+                text += '\n'
         else:
-            # avoid empty <latex> tags
-            if self.content['text'].strip() == '':
-                self.content['text'] = ' '
-            self.content['text'] = '$' + self.content['text'] + '$'
-        self.content['text'] = self.content['text'].replace('{align}', '{aligned}')
-        self.content['text'] = self.content['text'].replace(r'\lt', r'<')
+            raise ValueError, "Unknown value for 'display' attribute in <latex> element: " + repr(attribDisplay)
 
         # possible issue with $$ $$ or \[ \] modes inside a tabular.
         # test that by changing to $ $ mode
         ancestors = [a for a in element.iterancestors()]
         inside_table = ['table' in a for a in ancestors]
         if any(inside_table):
-            self.content['text'] = self.content['text'].replace('$$', '$')
-            self.content['text'] = self.content['text'].replace(r'\[', r'$')
-            self.content['text'] = self.content['text'].replace(r'\]', r'$')
+            text = text.replace(r'\[', r'\(')
+            text = text.replace(r'\]', r'\)')
 
-        # CNXMLPLUS files sometimes have open lines inside <latex> tags. Remove them.
-        text = self.content['text']
+        # CNXML+ files sometimes have open lines inside <latex> tags. Remove them.
         lines = text.split('\n')
         text = '\n'.join([l for l in lines if len(l.strip()) > 0])
 
-        text = unescape_latex(text) # Undo escaping since this is already latex
-
         self.content['text'] = text
+
+class pstikzpicture(html_element):
+    def __init__(self, element):
+        codeElement = element.find('code')
+        element.text = codeElement.text
+        element.remove(codeElement)
+        for child in codeElement.getchildren():
+            element.append(child)
+        html_element.__init__(self, element)
+        self.content['text'] = unescape_latex(self.content['text'].strip()) # Undo escaping since this is already latex
+
 
 class worked_example(html_element):
     def __init__(self, element):
