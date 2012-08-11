@@ -440,7 +440,7 @@ def delegate(element):
         myElement = exercises(element)
     elif element.tag == 'exercise':
         myElement = exercise(element)
-    elif element.tag == 'latex':
+    elif element.tag in ['latex', 'chem_compound', 'spec_note']:
         myElement = latex(element)
     elif element.tag in ['pspicture', 'tikzpicture']:
         myElement = pstikzpicture(element)
