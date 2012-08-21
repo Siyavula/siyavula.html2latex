@@ -586,6 +586,8 @@ class latex(html_element):
         text = self.content['text']
         lines = text.split('\n')
         text = '\n'.join([l for l in lines if len(l.strip()) > 0])
+        
+        text = text.replace('\&', '&')
 
         self.content['text'] = text
 
