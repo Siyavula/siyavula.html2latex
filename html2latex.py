@@ -588,6 +588,7 @@ class latex(html_element):
         text = '\n'.join([l for l in lines if len(l.strip()) > 0])
         
         text = text.replace('\&', '&')
+        text = text.replace(r'\_', '_')
 
         self.content['text'] = text
 
@@ -810,7 +811,7 @@ class table(html_element):
             # try a fancy column specifier for longtable
             colspecifier = r">{\centering}p{%1.3f\textwidth}"%(float(0.85/ncols))
             self.content['cols'] = '|' + '|'.join([colspecifier for i in range(int(ncols))]) + '|'
-            self.content['text'] = self.content['text'].replace(r'& \\ \hline', r'\\ \hline')
+            self.content['text'] = self.content['text'].replace(r'& \\ \hline', r'\tabularnewline \hline')
             self.content['text'] = self.content['text'].replace('\\par', ' ')
             self.content['text'] = self.content['text'].replace('\n','').replace('\\hline','\hline\n')
             #self.content['text'] = ''
@@ -1055,14 +1056,15 @@ class div_question(html_element):
 '''
         # get the answer element
         answer = element.find('.//div[@class="answer"]')
-        if answer is not None:
-            answertext = delegate(answer)
-            element.remove(answer)
-            html_element.__init__(self, element)
-            self.content['answer'] = answertext
-        else:
-            html_element.__init__(self, element)
-            self.content['answer'] = ''
+        html_element.__init__(self, element)
+#       if answer is not None:
+#           answertext = delegate(answer)
+#           element.remove(answer)
+#           html_element.__init__(self, element)
+#           self.content['answer'] = answertext
+#       else:
+#           html_element.__init__(self, element)
+#           self.content['answer'] = ''
 
         self.template = texenv.get_template('question.tex')
         
