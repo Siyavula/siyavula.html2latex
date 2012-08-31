@@ -1,5 +1,11 @@
 
 \begin{enumerate}
+((*- if content['number-style'] == 'lower-alpha'-*))
+[a.]
+((*- endif -*))
+((*- if content['start-value'] -*))
+\setcounter{enumi}{(((content['start-value']|int - 1)))}
+((*- endif *))
 (((content.text.strip())))
 \end{enumerate}
 (((content.tail.strip())))
