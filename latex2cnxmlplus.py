@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import os
 import string
@@ -49,7 +50,7 @@ class Renderer(Renderer):
         return node.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
 
     def section(self, node):
-        return u'\n<section type="%s">%s</section>'%(node.nodeName, unicode(node))
+        return u'\n<section type="%s">\n<title>%s</title>%s</section>'%(node.nodeName, node.attributes['title'], unicode(node))
 
     def par(self, node):
         if node.parentNode == 'par':
@@ -70,7 +71,7 @@ class Renderer(Renderer):
         return u'\n<note type="keyconcepts">%s</note>'%(unicode(node))
 
     def newwords(self, node):
-        return u'\n<note type="newwords">%s</note>'%(node.attributes['text'])
+        return u'\n<note type="newwords"><para>%s</para></note>'%(node.attributes['text'])
 
     def bgroup(self, node):
         if node.parentNode.nodeName == 'par':
@@ -136,7 +137,7 @@ class Renderer(Renderer):
         return u'\n<row>%s</row>'%(unicode(node))
 
     def ArrayCell(self, node):
-        return u'\n<entry>%s</entry>'%(unicode(node))
+        return u'\n<entry>%s\n</entry>'%(unicode(node))
 
     def includegraphics(self, node):
         return u'\n<media>\n    <image src="%s"/>\n</media>'%(node.attributes['src'])
@@ -147,6 +148,9 @@ class Renderer(Renderer):
     def activity(self, node):
         return u'\n<activity type="activity">\n<title>%s</title>%s</activity>'%(node.attributes['title'],unicode(node))
 
+    def document(self, node):
+        return u'<document>\n<content>%s\n</content></document>'%(unicode(node))
+
 if __name__ == "__main__":
     inputfile = sys.argv[1]
 
@@ -155,7 +159,6 @@ if __name__ == "__main__":
     
     \usepackage{latex2cnxmlmod}
     \usepackage{longtable}
-    
     \begin{document}
     %s
     \end{document}'''%latexcontent
@@ -192,6 +195,7 @@ if __name__ == "__main__":
     renderer['includegraphics'] = renderer.includegraphics
     renderer['visit'] = renderer.visit
     renderer['activity'] = renderer.activity
+    renderer['document'] = renderer.document
 
 
     renderer.render(document)
