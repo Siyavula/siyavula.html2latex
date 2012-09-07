@@ -851,7 +851,7 @@ class table(html_element):
                 self.content['columnspec'] = element.attrib['latex-column-spec']
             elif element.find('.//tgroup') is not None:
 
-                colspecifier = r">{\centering}p{%1.3f\textwidth}"%(float(0.85/ncols))
+                colspecifier = r">{\raggedright}p{%1.3f\textwidth}"%(float(0.85/ncols))
                 self.content['columnspec'] = '|' + '|'.join([colspecifier for i in range(int(ncols))]) + '|'
 #               tgroup = element.find('.//tgroup')
 #            #  if 'cols' in tgroup.attrib:
