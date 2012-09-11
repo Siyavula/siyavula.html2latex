@@ -873,6 +873,7 @@ class table(html_element):
             text = text.replace('\\]', '$')
             text = text.replace('\\begin{center}', '').replace('\\end{center}', '')
             text = text.replace('\\par', '')
+            text = text.replace('\n\n', '')
 
             
             # fix image widths if they are present
