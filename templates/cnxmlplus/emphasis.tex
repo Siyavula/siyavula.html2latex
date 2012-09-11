@@ -1,7 +1,7 @@
 ((*- if content.effect == 'underline' *))
  \underline{(((content.text.strip())))}
-((*- elif content.effect == 'bold' *))
- \textbf{(((content.text.strip())))}
+((*- elif content.effect == 'bold' -*))
+\textbf{(((content.text)))}
 ((*- elif content.effect == 'italics' *))
  \textit{(((content.text.strip())))}
 ((*- else *))
