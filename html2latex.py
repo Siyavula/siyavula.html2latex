@@ -731,8 +731,10 @@ class exercise(html_element):
 class exercises(html_element):
     def __init__(self, element):
         title = element.find('.//title')
-        titletext = delegate(title)
-        element.remove(title)
+        titletext = None
+        if title is not None:
+            titletext = delegate(title)
+            element.remove(title)
 
         # change the entry children to ex_entry, they conflict with tables
         for e in element.findall('./entry'):
@@ -740,7 +742,8 @@ class exercises(html_element):
 
         html_element.__init__(self, element)
         self.template = texenv.get_template('exercise.tex')
-        self.content['title'] = titletext
+        if titletext is not None:
+            self.content['title'] = titletext
 
 
 class workstep(html_element):
@@ -776,7 +779,7 @@ class section(html_element):
         element.remove(title)
         html_element.__init__(self, element)
 
-        sectiondepth = {0:'chapter', 1:'section', 2:'subsection', 3:'subsubsection'}
+        sectiondepth = {0:'chapter', 1:'section', 2:'subsection', 3:'subsubsection', 4:'textbf'}
         try:
             self.template = texenv.get_template('%s.tex'%element.attrib['type'])
         except KeyError:
@@ -942,6 +945,9 @@ class image(html_element):
         html_element.__init__(self, element)
         specifier = 'width=0.8\\textwidth'
         self.content['specifier'] = specifier
+        src = element.find('.//src')
+        if src is not None:
+            self.content['src'] = src.text
 #       if ('width' in self.content.keys()) and ('height' in self.content.keys()):
 #           width = float(self.content['width'])/72.
 #           height = float(self.content['height'])/72.
